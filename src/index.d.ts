@@ -8,8 +8,4 @@ interface HarRequest {
   readonly har: Request;
 }
 
-interface Oas2Har {
-  oasToHarList(spec: Spec | string): Promise<HarRequest[] | never>;
-}
-
-export = Oas2Har;
+export function oasToHarList(spec: Spec | string): Promise<HarRequest[] | never>;
