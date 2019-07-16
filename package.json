@@ -5,11 +5,14 @@
   "files": [
     "src"
   ],
-  "main": "src/index.js",
+  "main": "./src/index.js",
   "dependencies": {
-    "openapi-sampler": "^1.0.0-beta.15",
-    "js-yaml": "^3.13.1"
+    "@types/swagger-schema-official": "^2.0.18",
+    "@types/har-format": "^1.2.4",
+    "js-yaml": "^3.13.1",
+    "openapi-sampler": "^1.0.0-beta.15"
   },
+  "typings": "./src/index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NeuraLegion/oas2har.git"
