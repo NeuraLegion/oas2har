@@ -17,10 +17,13 @@ npm i --save @neuralegion/oas2har
 
 Using as a ES module:
 ```js
-import { getAll } from '@neuralegion/oas2har';
+import { oasToHarList } from '@neuralegion/oas2har';
 import swaggerJSON from 'your-swagger-api.json'; // e.g. http://petstore.swagger.io/v2/swagger.json
 
-getAll(swaggerJSON);
+oasToHarList(swaggerJSON)
+  .then((har) => {
+    console.log(har);
+  });
 ```
 
 

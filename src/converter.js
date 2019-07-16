@@ -22,6 +22,7 @@
  */
 
 var OpenAPISampler = require("openapi-sampler")
+var load = require("./loader")
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
@@ -306,35 +307,49 @@ var getHeadersArray = function(swagger, path, method) {
 }
 
 /**
+ * Produces array of HAR files for given Swagger document or path to the document
+ *
+ * @param  {object}   swagger          A swagger document or path to doc
+ * @returns  {Promise}                 Array of HAR files
+ */
+var oasToHarList = function(swagger) {
+  var docAsyncTask = typeof swagger === "string" ?
+    load(swagger) :
+    Promise.resolve(swagger)
+
+  return docAsyncTask
+    .then(function(docs) {
+      var baseUrl = getBaseUrl(docs)
+      return parseSwaggerDoc(docs, baseUrl)
+    })
+    .catch(function(err) {
+      throw new Error("Document is invalid. " + err.message)
+    })
+}
+
+/**
  * Produces array of HAR files for given Swagger document
  *
- * @param  {object}   swagger          A swagger document
- * @param  {Function} callback
+ * @param swagger         A swagger document or path to doc
+ * @param baseUrl         Base URL
+ * @returns {Array}       Array of HAR files
  */
-var swaggerToHarList = function(swagger) {
-  try {
-    // determine basePath:
-    var baseUrl = getBaseUrl(swagger)
-
-    // iterate Swagger and create har objects:
-    var harList = []
-    for (var path in swagger.paths) {
-      for (var method in swagger.paths[path]) {
-        var url = baseUrl + path
-        var har = createHar(swagger, path, method)
-        harList.push({
-          method: method.toUpperCase(),
-          url: url,
-          description: swagger.paths[path][method].description || "No description available",
-          har: har
-        })
-      }
+var parseSwaggerDoc = function(swagger, baseUrl) {
+  var harList = []
+  for (var path in swagger.paths) {
+    for (var method in swagger.paths[path]) {
+      var url = baseUrl + path
+      var har = createHar(swagger, path, method)
+      harList.push({
+        method: method.toUpperCase(),
+        url: url,
+        description: swagger.paths[path][method].description || "No description available",
+        har: har
+      })
     }
-
-    return harList
-  } catch (e) {
-    console.log(e)
   }
+
+  return harList
 }
 
 /**
@@ -361,6 +376,5 @@ var resolveRef = function(oai, ref) {
 }
 
 module.exports = {
-  getAll: swaggerToHarList,
-  getEndpoint: createHar
+  oasToHarList: oasToHarList
 }
