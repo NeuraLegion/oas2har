@@ -154,7 +154,7 @@ var getQueryStrings = function(swagger, path, method, values) {
         param = resolveRef(swagger, param["$ref"])
       }
       if (typeof param.in !== "undefined" && param.in.toLowerCase() === "query") {
-        const sample = OpenAPISampler.sample(param.schema || param, { skipReadOnly: true });
+        const sample = OpenAPISampler.sample(param.schema || param, {});
         queryStrings.push({
           name: param.name,
           value: typeof values[param.name] === "undefined"
@@ -221,7 +221,7 @@ var getHeadersArray = function(swagger, path, method) {
     for (var k in pathObj.parameters) {
       var param = pathObj.parameters[k]
       if (typeof param.in !== "undefined" && param.in.toLowerCase() === "header") {
-        const sample = OpenAPISampler.sample(param.schema || param, { skipReadOnly: true });
+        const sample = OpenAPISampler.sample(param.schema || param, {});
         headers.push({
           name: param.name,
           value: JSON.stringify(sample)
