@@ -1,2 +1,4 @@
 __test__/
 node_modules/
+commitlint.config.js
+release.config.js
