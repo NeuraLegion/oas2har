@@ -21,8 +21,8 @@
  * Source code initially pulled from: https://github.com/ErikWittern/swagger-snippet/blob/master/swagger-to-har.js
  */
 
-var OpenAPISampler = require("openapi-sampler")
-var load = require("./loader")
+var OpenAPISampler = require('openapi-sampler')
+var load = require('./loader')
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
@@ -35,7 +35,7 @@ var load = require("./loader")
  */
 var createHar = function(swagger, path, method, queryParamValues) {
   // if the operational parameter is not provided, set it to empty object
-  if (typeof queryParamValues === "undefined") {
+  if (typeof queryParamValues === 'undefined') {
     queryParamValues = {}
   }
 
@@ -46,7 +46,7 @@ var createHar = function(swagger, path, method, queryParamValues) {
     url: baseUrl + path,
     headers: getHeadersArray(swagger, path, method),
     queryString: getQueryStrings(swagger, path, method, queryParamValues),
-    httpVersion: "HTTP/1.1",
+    httpVersion: 'HTTP/1.1',
     cookies: [],
     headersSize: 0,
     bodySize: 0
@@ -70,15 +70,15 @@ var createHar = function(swagger, path, method, queryParamValues) {
  * @return {object}
  */
 var getPayload = function(swagger, path, method) {
-  if (typeof swagger.paths[path][method].parameters !== "undefined") {
+  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
     for (var i in swagger.paths[path][method].parameters) {
       var param = swagger.paths[path][method].parameters[i]
-      if (typeof param.in !== "undefined" && param.in.toLowerCase() === "body" &&
-        typeof param.schema !== "undefined") {
+      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'body' &&
+        typeof param.schema !== 'undefined') {
         try {
           const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
           return {
-            mimeType: "application/json",
+            mimeType: 'application/json',
             text: JSON.stringify(sample)
           }
         } catch (err) {
@@ -89,11 +89,11 @@ var getPayload = function(swagger, path, method) {
     }
   }
   if (swagger.paths[path][method].requestBody && swagger.paths[path][method].requestBody.content &&
-    swagger.paths[path][method].requestBody.content["application/json"] &&
-    swagger.paths[path][method].requestBody.content["application/json"].schema) {
-    const sample = OpenAPISampler.sample(swagger.paths[path][method].requestBody.content["application/json"].schema, { skipReadOnly: true }, swagger)
+    swagger.paths[path][method].requestBody.content['application/json'] &&
+    swagger.paths[path][method].requestBody.content['application/json'].schema) {
+    const sample = OpenAPISampler.sample(swagger.paths[path][method].requestBody.content['application/json'].schema, { skipReadOnly: true }, swagger)
     return {
-      mimeType: "application/json",
+      mimeType: 'application/json',
       text: JSON.stringify(sample)
     }
   }
@@ -110,18 +110,18 @@ var getBaseUrl = function(swagger) {
   if (swagger.servers)
     return swagger.servers[0].url
 
-  var baseUrl = ""
+  var baseUrl = ''
 
-  if (typeof swagger.schemes !== "undefined") {
+  if (typeof swagger.schemes !== 'undefined') {
     baseUrl += swagger.schemes[0]
   } else {
-    baseUrl += "http"
+    baseUrl += 'http'
   }
 
-  baseUrl += "://" + swagger.host
+  baseUrl += '://' + swagger.host
 
-  if (typeof swagger.basePath !== "undefined" &&
-    swagger.basePath !== "/") {
+  if (typeof swagger.basePath !== 'undefined' &&
+    swagger.basePath !== '/') {
     baseUrl += swagger.basePath
   }
 
@@ -140,27 +140,27 @@ var getBaseUrl = function(swagger) {
  */
 var getQueryStrings = function(swagger, path, method, values) {
   // Set the optional parameter if it's not provided
-  if (typeof values === "undefined") {
+  if (typeof values === 'undefined') {
     values = {}
   }
 
   var queryStrings = []
 
-  if (typeof swagger.paths[path][method].parameters !== "undefined") {
+  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
     for (var i in swagger.paths[path][method].parameters) {
       var param = swagger.paths[path][method].parameters[i]
-      if (typeof param["$ref"] === "string" &&
-        !/^http/.test(param["$ref"])) {
-        param = resolveRef(swagger, param["$ref"])
+      if (typeof param['$ref'] === 'string' &&
+        !/^http/.test(param['$ref'])) {
+        param = resolveRef(swagger, param['$ref'])
       }
-      if (typeof param.in !== "undefined" && param.in.toLowerCase() === "query") {
+      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
         queryStrings.push({
           name: param.name,
-          value: typeof values[param.name] === "undefined"
-            ? (typeof param.default === "undefined"
-              ? ("SOME_" + (param.type || param.schema.type).toUpperCase() + "_VALUE")
-              : param.default + "")
-            : (values[param.name] + "") /* adding a empty string to convert to string */
+          value: typeof values[param.name] === 'undefined'
+            ? (typeof param.default === 'undefined'
+              ? ('SOME_' + (param.type || param.schema.type).toUpperCase() + '_VALUE')
+              : param.default + '')
+            : (values[param.name] + '') /* adding a empty string to convert to string */
         })
       }
     }
@@ -184,22 +184,22 @@ var getHeadersArray = function(swagger, path, method) {
   var pathObj = swagger.paths[path][method]
 
   // 'accept' header:
-  if (typeof pathObj.consumes !== "undefined") {
+  if (typeof pathObj.consumes !== 'undefined') {
     for (var i in pathObj.consumes) {
       var type = pathObj.consumes[i]
       headers.push({
-        name: "accept",
+        name: 'accept',
         value: type
       })
     }
   }
 
   // 'content-type' header:
-  if (typeof pathObj.produces !== "undefined") {
+  if (typeof pathObj.produces !== 'undefined') {
     for (var j in pathObj.produces) {
       var type2 = pathObj.produces[j]
       headers.push({
-        name: "content-type",
+        name: 'content-type',
         value: type2
       })
     }
@@ -209,20 +209,20 @@ var getHeadersArray = function(swagger, path, method) {
   if (pathObj.requestBody && pathObj.requestBody.content) {
     for (const type3 of Object.keys(pathObj.requestBody.content)) {
       headers.push({
-        name: "content-type",
+        name: 'content-type',
         value: type3
       })
     }
   }
 
   // headers defined in path object:
-  if (typeof pathObj.parameters !== "undefined") {
+  if (typeof pathObj.parameters !== 'undefined') {
     for (var k in pathObj.parameters) {
       var param = pathObj.parameters[k]
-      if (typeof param.in !== "undefined" && param.in.toLowerCase() === "header") {
+      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
         headers.push({
           name: param.name,
-          value: "SOME_" + (param.type || param.schema.type).toUpperCase() + "_VALUE"
+          value: 'SOME_' + (param.type || param.schema.type).toUpperCase() + '_VALUE'
         })
       }
     }
@@ -232,7 +232,7 @@ var getHeadersArray = function(swagger, path, method) {
   var basicAuthDef
   var apiKeyAuthDef
   var oauthDef
-  if (typeof pathObj.security !== "undefined") {
+  if (typeof pathObj.security !== 'undefined') {
     for (var l in pathObj.security) {
       var secScheme = Object.keys(pathObj.security[l])[0]
       var secDefinition = swagger.securityDefinitions ?
@@ -240,20 +240,20 @@ var getHeadersArray = function(swagger, path, method) {
         swagger.components.securitySchemes[secScheme]
       var authType = secDefinition.type.toLowerCase()
       switch (authType) {
-        case "basic":
+        case 'basic':
           basicAuthDef = secScheme
           break
-        case "apikey":
-          if (secDefinition.in === "header") {
+        case 'apikey':
+          if (secDefinition.in === 'header') {
             apiKeyAuthDef = secDefinition
           }
           break
-        case "oauth2":
+        case 'oauth2':
           oauthDef = secScheme
           break
       }
     }
-  } else if (typeof swagger.security !== "undefined") {
+  } else if (typeof swagger.security !== 'undefined') {
     // Need to check OAS 3.0 spec about type http and scheme
     for (var m in swagger.security) {
       var secScheme = Object.keys(swagger.security[m])[0]
@@ -261,25 +261,25 @@ var getHeadersArray = function(swagger, path, method) {
       var authType = secDefinition.type.toLowerCase()
       let authScheme = secDefinition.scheme.toLowerCase()
       switch (authType) {
-        case "http":
+        case 'http':
           switch (authScheme) {
-            case "bearer":
+            case 'bearer':
               oauthDef = secScheme
               break
-            case "basic":
+            case 'basic':
               basicAuthDef = secScheme
               break
           }
           break
-        case "basic":
+        case 'basic':
           basicAuthDef = secScheme
           break
-        case "apikey":
-          if (secDefinition.in === "header") {
+        case 'apikey':
+          if (secDefinition.in === 'header') {
             apiKeyAuthDef = secDefinition
           }
           break
-        case "oauth2":
+        case 'oauth2':
           oauthDef = secScheme
           break
       }
@@ -288,18 +288,18 @@ var getHeadersArray = function(swagger, path, method) {
 
   if (basicAuthDef) {
     headers.push({
-      name: "Authorization",
-      value: "Basic " + "REPLACE_BASIC_AUTH"
+      name: 'Authorization',
+      value: 'Basic ' + 'REPLACE_BASIC_AUTH'
     })
   } else if (apiKeyAuthDef) {
     headers.push({
       name: apiKeyAuthDef.name,
-      value: "REPLACE_KEY_VALUE"
+      value: 'REPLACE_KEY_VALUE'
     })
   } else if (oauthDef) {
     headers.push({
-      name: "Authorization",
-      value: "Bearer " + "REPLACE_BEARER_TOKEN"
+      name: 'Authorization',
+      value: 'Bearer ' + 'REPLACE_BEARER_TOKEN'
     })
   }
 
@@ -313,7 +313,7 @@ var getHeadersArray = function(swagger, path, method) {
  * @returns  {Promise}                 Array of HAR files
  */
 var oasToHarList = function(swagger) {
-  var docAsyncTask = typeof swagger === "string" ?
+  var docAsyncTask = typeof swagger === 'string' ?
     load(swagger) :
     Promise.resolve(swagger)
 
@@ -323,7 +323,7 @@ var oasToHarList = function(swagger) {
       return parseSwaggerDoc(docs, baseUrl)
     })
     .catch(function(err) {
-      throw new Error("Document is invalid. " + err.message)
+      throw new Error('Document is invalid. ' + err.message)
     })
 }
 
@@ -343,7 +343,7 @@ var parseSwaggerDoc = function(swagger, baseUrl) {
       harList.push({
         method: method.toUpperCase(),
         url: url,
-        description: swagger.paths[path][method].description || "No description available",
+        description: swagger.paths[path][method].description || 'No description available',
         har: har
       })
     }
@@ -360,7 +360,7 @@ var parseSwaggerDoc = function(swagger, baseUrl) {
  * @return {any}
  */
 var resolveRef = function(oai, ref) {
-  var parts = ref.split("/")
+  var parts = ref.split('/')
 
   if (parts.length <= 1) return {} // = 3
 

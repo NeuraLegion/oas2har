@@ -26,11 +26,20 @@
   },
   "homepage": "https://github.com/NeuraLegion/oas2har#readme",
   "devDependencies": {
+    "@commitlint/cli": "^8.2.0",
+    "@commitlint/config-conventional": "^8.2.0",
+    "eslint": "^6.6.0",
+    "esprima": "^4.0.1",
+    "husky": "^3.0.7",
     "jest": "^24.8.0",
-    "prettier": "^1.11.1"
+    "lint-staged": "^9.4.0",
+    "prettier": "^1.11.1",
+    "semantic-release": "^15.13.27"
   },
   "scripts": {
-    "test": "jest"
+    "lint": "eslint",
+    "test": "jest",
+    "semantic-release": "semantic-release"
   },
   "keywords": [
     "swagger",
@@ -41,5 +50,18 @@
     "har",
     "json"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "pre-commit": "lint-staged",
+      "post-commit": "git update-index --again"
+    }
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "git add"
+    ]
+  }
 }
