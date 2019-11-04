@@ -5,7 +5,10 @@ module.exports = {
       {
         parserOpts: {
           noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES']
-        }
+        },
+        releaseRules: [
+          {type: 'refactor', release: 'patch'}
+        ]
       }
     ],
     [
@@ -16,17 +19,18 @@ module.exports = {
         }
       }
     ],
-    [
-      '@semantic-release/npm',
-      {
-        npmPublish: false
-      }
-    ],
+    '@semantic-release/npm',
     [
       '@semantic-release/github',
       {
-        assets: ['dist/**']
+        assets: ['dist/**', 'src/**', 'package.json', 'package-lock.json', 'README.md']
       }
+    ],
+    [
+      '@semantic-release/git', {
+      assets: ['src/**', 'package.json', 'package-lock.json'],
+      message: 'chore(release): ${nextRelease.version} [skip ci]'
+    }
     ]
   ],
   branch: 'master',
