@@ -158,11 +158,7 @@ var getQueryStrings = function(swagger, path, method, values) {
         const sample = OpenAPISampler.sample(param.schema || param, {});
         queryStrings.push({
           name: param.name,
-          value: typeof values[param.name] === 'undefined'
-            ? (typeof param.default === 'undefined'
-              ? JSON.stringify(sample)
-              : param.default + '')
-            : (values[param.name] + '') /* adding a empty string to convert to string */
+          value: JSON.stringify(sample)
         })
       }
     }
