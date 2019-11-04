@@ -21,8 +21,9 @@
  * Source code initially pulled from: https://github.com/ErikWittern/swagger-snippet/blob/master/swagger-to-har.js
  */
 
-var OpenAPISampler = require('openapi-sampler')
-var load = require('./loader')
+var OpenAPISampler = require('@neuralegion/openapi-sampler');
+var load = require('./loader');
+
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
@@ -149,19 +150,19 @@ var getQueryStrings = function(swagger, path, method, values) {
   if (typeof swagger.paths[path][method].parameters !== 'undefined') {
     for (var i in swagger.paths[path][method].parameters) {
       var param = swagger.paths[path][method].parameters[i];
-      if (typeof param["$ref"] === "string" &&
-        !/^http/.test(param["$ref"])) {
-        param = resolveRef(swagger, param["$ref"])
+      if (typeof param['$ref'] === 'string' &&
+        !/^http/.test(param['$ref'])) {
+        param = resolveRef(swagger, param['$ref'])
       }
-      if (typeof param.in !== "undefined" && param.in.toLowerCase() === "query") {
+      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
         const sample = OpenAPISampler.sample(param.schema || param, {});
         queryStrings.push({
           name: param.name,
-          value: typeof values[param.name] === "undefined"
-            ? (typeof param.default === "undefined"
+          value: typeof values[param.name] === 'undefined'
+            ? (typeof param.default === 'undefined'
               ? JSON.stringify(sample)
-              : param.default + "")
-            : (values[param.name] + "") /* adding a empty string to convert to string */
+              : param.default + '')
+            : (values[param.name] + '') /* adding a empty string to convert to string */
         })
       }
     }
@@ -220,7 +221,7 @@ var getHeadersArray = function(swagger, path, method) {
   if (typeof pathObj.parameters !== 'undefined') {
     for (var k in pathObj.parameters) {
       var param = pathObj.parameters[k]
-      if (typeof param.in !== "undefined" && param.in.toLowerCase() === "header") {
+      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
         const sample = OpenAPISampler.sample(param.schema || param, {});
         headers.push({
           name: param.name,

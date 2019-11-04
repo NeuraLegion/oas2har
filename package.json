@@ -7,10 +7,10 @@
   ],
   "main": "./src/index.js",
   "dependencies": {
-    "@types/swagger-schema-official": "^2.0.18",
+    "@neuralegion/openapi-sampler": "^0.6.1",
     "@types/har-format": "^1.2.4",
-    "js-yaml": "^3.13.1",
-    "openapi-sampler": "^1.0.0-beta.15"
+    "@types/swagger-schema-official": "^2.0.18",
+    "js-yaml": "^3.13.1"
   },
   "typings": "./src/index.d.ts",
   "repository": {
