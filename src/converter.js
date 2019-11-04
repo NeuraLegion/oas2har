@@ -155,10 +155,13 @@ var getQueryStrings = function(swagger, path, method, values) {
         param = resolveRef(swagger, param['$ref'])
       }
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
-        const sample = OpenAPISampler.sample(param.schema || param, {});
+        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
         queryStrings.push({
           name: param.name,
-          value: JSON.stringify(sample)
+          value: typeof values[param.name] === 'undefined' ? (typeof param.default === 'undefined'
+              ?  encodeURIComponent((typeof sample === 'object') ? JSON.stringify(sample) : sample)
+              : param.default + '')
+              : (values[param.name] + '') /* adding a empty string to convert to string */
         })
       }
     }
@@ -218,10 +221,10 @@ var getHeadersArray = function(swagger, path, method) {
     for (var k in pathObj.parameters) {
       var param = pathObj.parameters[k]
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
-        const sample = OpenAPISampler.sample(param.schema || param, {});
+        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
         headers.push({
           name: param.name,
-          value: JSON.stringify(sample)
+          value: encodeURIComponent((typeof sample === 'object') ? JSON.stringify(sample) : sample)
         })
       }
     }
