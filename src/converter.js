@@ -224,7 +224,7 @@ var getHeadersArray = function(swagger, path, method) {
         const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
         headers.push({
           name: param.name,
-          value: encodeURIComponent((typeof sample === 'object') ? JSON.stringify(sample) : sample)
+          value: sample
         })
       }
     }
