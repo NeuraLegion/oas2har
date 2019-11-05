@@ -21,8 +21,9 @@
  * Source code initially pulled from: https://github.com/ErikWittern/swagger-snippet/blob/master/swagger-to-har.js
  */
 
-var OpenAPISampler = require('openapi-sampler')
-var load = require('./loader')
+var OpenAPISampler = require('@neuralegion/openapi-sampler');
+var load = require('./loader');
+
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
@@ -148,19 +149,19 @@ var getQueryStrings = function(swagger, path, method, values) {
 
   if (typeof swagger.paths[path][method].parameters !== 'undefined') {
     for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
+      var param = swagger.paths[path][method].parameters[i];
       if (typeof param['$ref'] === 'string' &&
         !/^http/.test(param['$ref'])) {
         param = resolveRef(swagger, param['$ref'])
       }
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
+        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
         queryStrings.push({
           name: param.name,
-          value: typeof values[param.name] === 'undefined'
-            ? (typeof param.default === 'undefined'
-              ? ('SOME_' + (param.type || param.schema.type).toUpperCase() + '_VALUE')
+          value: typeof values[param.name] === 'undefined' ? (typeof param.default === 'undefined'
+              ?  encodeURIComponent((typeof sample === 'object') ? JSON.stringify(sample) : sample)
               : param.default + '')
-            : (values[param.name] + '') /* adding a empty string to convert to string */
+              : (values[param.name] + '') /* adding a empty string to convert to string */
         })
       }
     }
@@ -220,9 +221,10 @@ var getHeadersArray = function(swagger, path, method) {
     for (var k in pathObj.parameters) {
       var param = pathObj.parameters[k]
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
+        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
         headers.push({
           name: param.name,
-          value: 'SOME_' + (param.type || param.schema.type).toUpperCase() + '_VALUE'
+          value: (typeof sample === 'object') ? JSON.stringify(sample) : sample
         })
       }
     }
