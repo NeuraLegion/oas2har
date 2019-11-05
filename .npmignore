@@ -1,4 +1,7 @@
 __test__/
 node_modules/
 commitlint.config.js
+.eslintrc
 release.config.js
+.github
+.idea
