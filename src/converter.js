@@ -260,7 +260,11 @@ var getHeadersArray = function(swagger, path, method) {
     for (var m in swagger.security) {
       var secScheme = Object.keys(swagger.security[m])[0]
       const { securitySchemes, securityDefinitions } = swagger.components ? swagger.components : swagger;
-      const secDefinition =  securitySchemes ? securitySchemes[secScheme] : securityDefinitions[secScheme];
+      const definedScheme = securitySchemes ? securitySchemes : securityDefinitions;
+      if (!definedScheme) {
+        continue;
+      }
+      const secDefinition = definedScheme[secScheme];
       const { type, scheme } = secDefinition;
       let authType = type.toLowerCase();
       let authScheme = scheme ? scheme.toLowerCase(): '';
