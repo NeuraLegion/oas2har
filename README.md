@@ -13,8 +13,6 @@ npm i --save @neuralegion/oas2har
 
 ## Usage
 
-
-
 Using as a ES module:
 ```js
 import { oasToHarList } from '@neuralegion/oas2har';

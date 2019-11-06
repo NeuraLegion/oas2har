@@ -1,6 +1,6 @@
 {
   "name": "@neuralegion/oas2har",
-  "version": "0.2.2",
+  "version": "0.0.0",
   "description": "Generate HAR objects from OAS",
   "files": [
     "src"
@@ -17,6 +17,10 @@
     "type": "git",
     "url": "git+https://github.com/NeuraLegion/oas2har.git"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false,
   "author": {
     "name": "Artem Derevnjuk",
     "email": "artem.derevnjuk@neuralegion.com"
