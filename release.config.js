@@ -23,12 +23,7 @@ module.exports = {
       }
     ],
     '@semantic-release/npm',
-    [
-      '@semantic-release/github',
-      {
-        assets: ['src/**', 'package.json', 'package-lock.json', 'README.md']
-      }
-    ]
+    '@semantic-release/github'
   ],
   branch: 'master',
   ci: true
