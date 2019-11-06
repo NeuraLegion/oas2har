@@ -224,7 +224,7 @@ var getHeadersArray = function(swagger, path, method) {
         const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
         headers.push({
           name: param.name,
-          value: (typeof sample === 'object') ? JSON.stringify(sample) : sample
+          value: sample
         })
       }
     }
@@ -259,9 +259,11 @@ var getHeadersArray = function(swagger, path, method) {
     // Need to check OAS 3.0 spec about type http and scheme
     for (var m in swagger.security) {
       var secScheme = Object.keys(swagger.security[m])[0]
-      var secDefinition = swagger.components.securitySchemes[secScheme]
-      var authType = secDefinition.type.toLowerCase()
-      let authScheme = secDefinition.scheme.toLowerCase()
+      const { securitySchemes, securityDefinitions } = swagger.components ? swagger.components : swagger;
+      const secDefinition =  securitySchemes ? securitySchemes[secScheme] : securityDefinitions[secScheme];
+      const { type, scheme } = secDefinition;
+      let authType = type.toLowerCase();
+      let authScheme = scheme ? scheme.toLowerCase(): '';
       switch (authType) {
         case 'http':
           switch (authScheme) {
@@ -304,7 +306,6 @@ var getHeadersArray = function(swagger, path, method) {
       value: 'Bearer ' + 'REPLACE_BEARER_TOKEN'
     })
   }
-
   return headers
 }
 
