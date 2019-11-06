@@ -1,0 +1,163 @@
+---
+swagger: "2.0"
+info:
+  x-ibm-name: branches
+  title: Get Branches Details
+  version: 1.0.0
+  description: ""
+schemes:
+- https
+basePath: /branches
+consumes:
+- application/xml
+produces:
+- application/xml
+- application/json
+securitsyDefinitions:
+  api-key-1clientIclientSecretHeader:
+    type: apiKey
+    description: ""
+    in: header
+    name: X-IBM-Client-Secret
+  clientIdHeader:
+    type: apiKey
+    in: header
+    name: X-IBM-Client-Id
+security:
+- clientIdHeader: []
+  api-key-1clientIclientSecretHeader: []
+x-ibm-configuration:
+  testable: true
+  enforced: true
+  phase: realized
+paths:
+  /list:
+    get:
+      responses:
+        200:
+          description: 200 OK
+      deprecated: false
+    parameters:
+    - name: bank_id
+      type: string
+      required: false
+      in: query
+definitions:
+  error_data:
+    properties:
+      httpCode:
+        type: string
+      httpMessage:
+        type: string
+      errorCode:
+        type: string
+      moreInformation:
+        type: string
+    additionalProperties: false
+  response_data:
+    properties:
+      httpCode:
+        type: string
+      httpMessage:
+        type: string
+      moreInformation:
+        type: string
+      Branches:
+        $ref: '#/definitions/branches'
+    additionalProperties: false
+  work_hours:
+    properties:
+      Hours:
+        $ref: '#/definitions/hours'
+        type: array
+        items:
+          type: string
+    additionalProperties: false
+  hours:
+    properties:
+      Days:
+        type: string
+      Hours:
+        type: string
+    additionalProperties: false
+  branches:
+    properties:
+      Branch:
+        items:
+          type: string
+        $ref: '#/definitions/branch'
+        type: array
+    additionalProperties: false
+  branch:
+    description: ""
+    type: object
+    properties:
+      Name:
+        type: string
+      Number:
+        type: integer
+        format: int32
+      Address:
+        type: string
+      Fax:
+        type: string
+      MainPhone:
+        type: string
+      ManagerName:
+        type: string
+      ManagerMovieLink:
+        type: string
+        xml:
+          namespace: ""
+      Messages:
+        type: string
+      Longitude:
+        type: string
+      Latitude:
+        type: string
+      City:
+        type: string
+      IsExtention:
+        type: boolean
+      WorkingHours:
+        $ref: '#/definitions/work_hours'
+      Services:
+        $ref: '#/definitions/services'
+      AccessibilityServices:
+        $ref: '#/definitions/accessibility_services'
+    xml:
+      namespace: ""
+    example: "<NAME>אילת</NAME>\r\n<NUMBER>003</NUMBER>\r\n<IS_EXTENSION/>\r\n<ADDRESS>רח'
+      שדרות התמרים 11, אילת 88107</ADDRESS>\r\n<FAX>03-5134003</FAX>\r\n<MAIN_PHONE>08-6365200</MAIN_PHONE>\r\n<MANAGER_NAME>שרון
+      לוי</MANAGER_NAME>\r\n<MANAGER_EMAIL/>\r\n<MANAGER_MOVIE_LINK>\r\n\t<![CDATA[]]>\r\n</MANAGER_MOVIE_LINK>\r\n<MESSAGES>\r\n\t<![CDATA[סניפומט
+      שקלים ועמדה להפקדת שיקים נמצאים בחזית בנק אוצר החייל הצמוד]]>\r\n</MESSAGES>\r\n<LONGITUDE>34.952716</LONGITUDE>\r\n<LATITUDE>29.555324</LATITUDE>\r\n<CITY>sa_branch_city_Eilat</CITY>\r\n<BANK>sa_bank_fibi</BANK>"
+  services:
+    properties:
+      services:
+        $ref: '#/definitions/service'
+        type: array
+        items:
+          type: string
+    additionalProperties: false
+  service:
+    properties:
+      Name:
+        type: string
+      Title:
+        type: string
+    additionalProperties: false
+  accessibility_services:
+    properties:
+      AccessibilityServices:
+        $ref: '#/definitions/service'
+        type: array
+        items:
+          type: string
+    additionalProperties: false
+tags: []
+x-ibm-endpoints:
+- endpointUrl: https://api.fibi.co.il:8443/fibi/sb
+  type:
+  - production
+  - development
+...

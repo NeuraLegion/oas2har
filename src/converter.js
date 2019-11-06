@@ -237,9 +237,13 @@ var getHeadersArray = function(swagger, path, method) {
   if (typeof pathObj.security !== 'undefined') {
     for (var l in pathObj.security) {
       var secScheme = Object.keys(pathObj.security[l])[0]
-      var secDefinition = swagger.securityDefinitions ?
-        swagger.securityDefinitions[secScheme] :
-        swagger.components.securitySchemes[secScheme]
+      const definedSchema = swagger.securityDefinitions ?
+        swagger.securityDefinitions :
+        swagger.components.securitySchemes;
+      if (!definedSchema) {
+        continue;
+      }
+      var secDefinition = definedSchema[secScheme];
       var authType = secDefinition.type.toLowerCase()
       switch (authType) {
         case 'basic':
