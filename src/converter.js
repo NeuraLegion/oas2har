@@ -179,7 +179,7 @@ var getQueryStrings = function(swagger, path, method, values) {
  * @param  {string} method  Key of the method
  * @return {array}          List of objects describing the header
  */
-var getHeadersArray = function(swagger, path, method) {
+var getHeadersArray = function (swagger, path, method) {
   var headers = []
 
   var pathObj = swagger.paths[path][method]
@@ -231,70 +231,44 @@ var getHeadersArray = function(swagger, path, method) {
   }
 
   // security:
+  const securityObj = pathObj.security ? pathObj.security : swagger.security;
+  const { securitySchemes, securityDefinitions } = swagger.components ? swagger.components : swagger;
+  const definedScheme = securitySchemes ? securitySchemes : securityDefinitions;
+  if (!definedScheme) {
+    return headers;
+  }
+
   var basicAuthDef
   var apiKeyAuthDef
   var oauthDef
-  if (typeof pathObj.security !== 'undefined') {
-    for (var l in pathObj.security) {
-      var secScheme = Object.keys(pathObj.security[l])[0]
-      const definedSchema = swagger.securityDefinitions ?
-        swagger.securityDefinitions :
-        swagger.components.securitySchemes;
-      if (!definedSchema) {
-        continue;
-      }
-      var secDefinition = definedSchema[secScheme];
-      var authType = secDefinition.type.toLowerCase()
-      switch (authType) {
-        case 'basic':
-          basicAuthDef = secScheme
-          break
-        case 'apikey':
-          if (secDefinition.in === 'header') {
-            apiKeyAuthDef = secDefinition
-          }
-          break
-        case 'oauth2':
-          oauthDef = secScheme
-          break
-      }
-    }
-  } else if (typeof swagger.security !== 'undefined') {
-    // Need to check OAS 3.0 spec about type http and scheme
-    for (var m in swagger.security) {
-      var secScheme = Object.keys(swagger.security[m])[0]
-      const { securitySchemes, securityDefinitions } = swagger.components ? swagger.components : swagger;
-      const definedScheme = securitySchemes ? securitySchemes : securityDefinitions;
-      if (!definedScheme) {
-        continue;
-      }
-      const secDefinition = definedScheme[secScheme];
-      const { type, scheme } = secDefinition;
-      let authType = type.toLowerCase();
-      let authScheme = scheme ? scheme.toLowerCase(): '';
-      switch (authType) {
-        case 'http':
-          switch (authScheme) {
-            case 'bearer':
-              oauthDef = secScheme
-              break
-            case 'basic':
-              basicAuthDef = secScheme
-              break
-          }
-          break
-        case 'basic':
-          basicAuthDef = secScheme
-          break
-        case 'apikey':
-          if (secDefinition.in === 'header') {
-            apiKeyAuthDef = secDefinition
-          }
-          break
-        case 'oauth2':
-          oauthDef = secScheme
-          break
-      }
+
+  for (var m in securityObj) {
+    var secScheme = Object.keys(securityObj[m])[0];
+    const secDefinition = definedScheme[secScheme];
+    let authType = secDefinition.type.toLowerCase();
+    switch (authType) {
+      case 'http':
+        let authScheme = secDefinition.toLowerCase();
+        switch (authScheme) {
+          case 'bearer':
+            oauthDef = secScheme
+            break
+          case 'basic':
+            basicAuthDef = secScheme
+            break
+        }
+        break
+      case 'basic':
+        basicAuthDef = secScheme
+        break
+      case 'apikey':
+        if (secDefinition.in === 'header') {
+          apiKeyAuthDef = secDefinition
+        }
+        break
+      case 'oauth2':
+        oauthDef = secScheme
+        break
     }
   }
 
@@ -314,6 +288,7 @@ var getHeadersArray = function(swagger, path, method) {
       value: 'Bearer ' + 'REPLACE_BEARER_TOKEN'
     })
   }
+
   return headers
 }
 
