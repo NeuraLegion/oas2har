@@ -231,10 +231,26 @@ var getHeadersArray = function (swagger, path, method) {
   }
 
   // security:
-  const securityObj = pathObj.security ? pathObj.security : swagger.security;
-  const { securitySchemes, securityDefinitions } = swagger.components ? swagger.components : swagger;
-  const definedScheme = securitySchemes ? securitySchemes : securityDefinitions;
-  if (!definedScheme) {
+  let securityObj;
+
+  if (typeof pathObj.security !== 'undefined') {
+    securityObj = pathObj.security;
+  } else if (typeof swagger.security !== 'undefined') {
+    securityObj = swagger.security;
+  }
+
+  if (!securityObj) {
+    return headers;
+  }
+
+  let definedSchemes;
+  if (swagger.securityDefinitions) {
+    definedSchemes = swagger.securityDefinitions;
+  } else if (swagger.components) {
+    definedSchemes = swagger.components.securitySchemes;
+  }
+
+  if (!definedSchemes) {
     return headers;
   }
 
@@ -244,7 +260,7 @@ var getHeadersArray = function (swagger, path, method) {
 
   for (var m in securityObj) {
     var secScheme = Object.keys(securityObj[m])[0];
-    const secDefinition = definedScheme[secScheme];
+    const secDefinition = definedSchemes[secScheme];
     let authType = secDefinition.type.toLowerCase();
     switch (authType) {
       case 'http':
