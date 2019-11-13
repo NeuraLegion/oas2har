@@ -23,6 +23,7 @@
 
 var OpenAPISampler = require('@neuralegion/openapi-sampler');
 var load = require('./loader');
+var urlTemplate = require('url-template');
 
 
 /**
@@ -44,12 +45,13 @@ var createHar = function(swagger, path, method, queryParamValues) {
 
   var har = {
     method: method.toUpperCase(),
-    url: baseUrl + path,
+    url: baseUrl + serializePath(swagger, path, method),
     headers: getHeadersArray(swagger, path, method),
     queryString: getQueryStrings(swagger, path, method, queryParamValues),
     httpVersion: 'HTTP/1.1',
     cookies: [],
     headersSize: 0,
+
     bodySize: 0
   }
 
@@ -375,6 +377,29 @@ var resolveRef = function(oai, ref) {
     }
   }
   return recursive(oai, 1)
+}
+
+/**
+ *
+ * @param  {Object} swagger Swagger document
+ * @param  {string} path    Key of the path
+ * @param  {string} method  Key of the method
+ * @return {string}         Serialized URL
+ */
+var serializePath = function (swagger, path, method) {
+  const templateUrl = urlTemplate.parse(path);
+  const params = {};
+
+  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
+    for (var i in swagger.paths[path][method].parameters) {
+      var param = swagger.paths[path][method].parameters[i];
+      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'path') {
+        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
+        Object.assign(params, { [param.name]: sample });
+      }
+    }
+  }
+  return templateUrl.expand(params);
 }
 
 module.exports = {
