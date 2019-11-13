@@ -23,6 +23,7 @@
 
 var OpenAPISampler = require('@neuralegion/openapi-sampler');
 var load = require('./loader');
+var urlTemplate = require('url-template');
 
 
 /**
@@ -386,73 +387,19 @@ var resolveRef = function(oai, ref) {
  * @return {string}         Serialized URL
  */
 var serializePath = function (swagger, path, method) {
-  const serializePrimitive = (param, value, style) => {
-    switch (style) {
-      case 'label':
-        return `.${value}`;
-      case 'matrix':
-        return `;${param}=${value}`;
-      default:
-        return value;
-    }
-  };
+  const templateUrl = urlTemplate.parse(path);
+  const params = {};
 
-  const serializeArray = (param, sample, style, explode) => {
-    switch (style) {
-      case 'label':
-        return  `.${sample.join(!explode ? ',' : '.')}`;
-      case 'matrix':
-        return !explode ? `;${param}=${sample.join()}` : sample.reduce((acc, item) => acc += `;${param}=${item}`, '');
-      default:
-        return sample.join();
-    }
-  };
-
-  const serializeObject = (param, sample, style, explode) => {
-    const serialize = function (sample, explode, delimiter) {
-      const propertyDelimiter = explode ? '=' : ',';
-      const joinDelimiter = explode ? delimiter : ',';
-      return Object.keys(sample).map(
-          (key) => key + `${propertyDelimiter}`  + sample[key]
-      ).join(joinDelimiter);
-    };
-    switch (style) {
-      case 'label':
-        return `.${serialize(sample, explode, '.')}`;
-      case 'matrix':
-        const prefix = explode ? '' : `${param}=`;
-        return `;${prefix}${serialize(sample, explode, ';')}`;
-      default:
-        return serialize(sample, explode, ',');
-    }
-  };
-
-  const serializeParam  = function (type, param, sample, style, explode = false) {
-    switch (type) {
-      case 'array':
-        return serializeArray(param, sample, style, explode);
-      case 'object':
-        return serializeObject(param, sample, style, explode);
-      default:
-        return serializePrimitive(param, style, sample);
-    }
-  };
-
-  let serializedPath = path;
   if (typeof swagger.paths[path][method].parameters !== 'undefined') {
     for (var i in swagger.paths[path][method].parameters) {
       var param = swagger.paths[path][method].parameters[i];
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'path') {
-        const schema = param.schema || param;
-        const sample = OpenAPISampler.sample(schema, {}, swagger);
-        serializedPath = serializedPath.replace(
-            `{${param.name}}`,
-            serializeParam(schema.type,  param.name, sample, param.style, param.explode)
-        );
+        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
+        Object.assign(params, { [param.name]: sample });
       }
     }
   }
-  return serializedPath;
+  return templateUrl.expand(params);
 }
 
 module.exports = {
