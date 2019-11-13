@@ -24,7 +24,8 @@
 var OpenAPISampler = require('@neuralegion/openapi-sampler');
 var load = require('./loader');
 var urlTemplate = require('url-template');
-
+const { toXML } = require('jstoxml');
+const faker = require('faker');
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
@@ -79,10 +80,14 @@ var getPayload = function(swagger, path, method) {
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'body' &&
         typeof param.schema !== 'undefined') {
         try {
-          const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+          const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger);
+          const paramContentType = swagger.consumes && swagger.consumes.length ?
+              faker.random.arrayElement(swagger.consumes)
+              : 'application/json';
+
           return {
-            mimeType: 'application/json',
-            text: JSON.stringify(sample)
+            mimeType: paramContentType,
+            text: encodeValue(sample, paramContentType, param.schema)
           }
         } catch (err) {
           console.log(err)
@@ -91,13 +96,23 @@ var getPayload = function(swagger, path, method) {
       }
     }
   }
-  if (swagger.paths[path][method].requestBody && swagger.paths[path][method].requestBody.content &&
-    swagger.paths[path][method].requestBody.content['application/json'] &&
-    swagger.paths[path][method].requestBody.content['application/json'].schema) {
-    const sample = OpenAPISampler.sample(swagger.paths[path][method].requestBody.content['application/json'].schema, { skipReadOnly: true }, swagger)
+
+  let content = swagger.paths[path][method].requestBody ?
+      swagger.paths[path][method].requestBody.content
+      : null ;
+
+  const keys = Object.keys(content || {});
+  if (!keys.length) {
+    return null;
+  }
+
+  const contentType = faker.random.arrayElement(keys);
+  if (content[contentType] && content[contentType].schema) {
+    let sampleContent = content[contentType];
+    const sample = OpenAPISampler.sample(content[contentType].schema, { skipReadOnly: true }, swagger);
     return {
-      mimeType: 'application/json',
-      text: JSON.stringify(sample)
+      mimeType: contentType,
+      text: encodeValue(sample, contentType, sampleContent)
     }
   }
   return null
@@ -327,6 +342,7 @@ var oasToHarList = function(swagger) {
       return parseSwaggerDoc(docs, baseUrl)
     })
     .catch(function(err) {
+      console.log(err);
       throw new Error('Document is invalid. ' + err.message)
     })
 }
@@ -401,6 +417,61 @@ var serializePath = function (swagger, path, method) {
   }
   return templateUrl.expand(params);
 }
+
+/*
+ * Returns the encoded value for defined content
+ *
+ * @param  {any} value The sampled value to encode
+ * @param  {string} contentType The content-type of the value
+ * @param  {object} content The content object used for further details
+ * @return {any}
+ */
+var encodeValue = function(value, contentType, content) {
+  if (content.encoding) {
+    const encodingKeys = Object.keys(content.encoding);
+    encodingKeys.map((encodingKey) => {
+      value[encodingKey] = encodeValue(value[encodingKey], content.encoding[encodingKey].contentType, content)
+    });
+  }
+
+  switch (contentType) {
+    case 'application/json':
+      return JSON.stringify(value);
+
+    case 'application/x-www-form-urlencoded':
+      return Object.keys(value).map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(value[key])}`).join('&');
+
+    case 'application/xml':
+      const xmlOptions = {
+        header: true,
+        indent: '  '
+      };
+      return toXML(value, xmlOptions);
+
+    case 'multipart/form-data':
+      let formData = new FormData();
+      Object.keys(value).forEach((key) => formData.append(key, value[key]));
+      return formData;
+
+    case 'application/octet-stream':
+    case 'text/plain':
+    case '*/*':
+      if (typeof value === 'object') {
+        value = JSON.stringify(value);
+      }
+      return Buffer.from(value).toString('base64');
+
+    case 'image/jpg':
+    case 'image/jpeg':
+      return Buffer.from('FF D8 FF DB').toString('base64');
+
+    case 'image/png':
+    case 'image/*':
+      return Buffer.from('89 50 4E 47 0D 0A 1A 0A').toString('base64');
+  }
+
+  return Buffer.from(value).toString('base64');
+};
 
 module.exports = {
   oasToHarList: oasToHarList
