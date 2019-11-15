@@ -414,13 +414,14 @@ var resolveRef = function(oai, ref) {
  * @param  {string[]} keys Array of keys referencing properties and how to encode them
  * @param  {any} sample The sample whose properties are encoded
  * @param  {object} content The content options
- * @return {any}
+ * @return {object}
  */
-var encodeProperties = function(keys, sample, content) {
-  keys.forEach((encodingKey) => {
-    sample[encodingKey] = encodeValue(sample[encodingKey], content.encoding[encodingKey].contentType, content);
-  });
-  return sample;
+var encodeProperties = function (keys, sample, content) {
+  const encodedSample = keys.reduce((encodedSample, encodingKey) => {
+    encodedSample[encodingKey] = encodeValue(sample[encodingKey], content.encoding[encodingKey].contentType, content);
+    return encodedSample;
+  }, {});
+  return Object.assign({}, sample, encodedSample);
 };
 
 /**
@@ -431,7 +432,7 @@ var encodeProperties = function(keys, sample, content) {
  * @param  {object} content The content options
  * @return {string}
  */
-var getMultipartContentType = function(value, paramKey, content) {
+var getMultipartContentType = function (value, paramKey, content) {
 
   if (content.encoding && content.encoding[paramKey] && content.encoding[paramKey].contentType) {
     return content.encoding[paramKey].contentType;
@@ -468,7 +469,7 @@ var serializePath = function (swagger, path, method) {
       var param = swagger.paths[path][method].parameters[i];
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'path') {
         const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
-        Object.assign(params, { [param.name]: sample });
+        Object.assign(params, {[param.name]: sample});
       }
     }
   }
@@ -483,7 +484,7 @@ var serializePath = function (swagger, path, method) {
  * @param  {object} content The content options
  * @return {any}
  */
-var encodeValue = function(value, contentType, content) {
+var encodeValue = function (value, contentType, content) {
   switch (contentType) {
     case 'application/json':
       return JSON.stringify(value);
@@ -501,18 +502,17 @@ var encodeValue = function(value, contentType, content) {
     case 'multipart/form-data':
       let inputNames = Object.keys(value);
       let rawData = inputNames.reduce((params, key) => {
-        const param = `--956888039105887155673143
-          Content-Disposition: form-data; name="${key}"; filename="${key}"
-          Content-Type: ${getMultipartContentType(value[key], key, content)}
-          
-          ${value[key]}`;
+        let param = '--956888039105887155673143\r\n';
+        param += `Content-Disposition: form-data; name="${key}"; filename="${key}"\r\n`;
+        param += `Content-Type: ${getMultipartContentType(value[key], key, content)}\r\n\r\n`;
+        param += `${value[key]}`;
         params.push(param);
         return params;
       }, []).join('\r\n');
       rawData += '\r\n--956888039105887155673143--';
       return rawData;
 
-    case 'image/jpweg':
+    case 'image/jpg':
     case 'image/jpeg':
       return Buffer.from([0xFF, 0xD8, 0xFF, 0xDB], 'hex').toString('base64');
 
@@ -537,13 +537,15 @@ var encodeValue = function(value, contentType, content) {
  * @param  {object} content The content options
  * @return {any}
  */
-var encodeSample = function(sample, contentType, content) {
-  if (content.encoding){
-    encodeProperties(Object.keys(content.encoding), sample, content);
+var encodeSample = function (sample, contentType, content) {
+  let encodedSample = sample;
+  if (content.encoding) {
+    encodedSample = encodeProperties(Object.keys(content.encoding), sample, content);
   }
-  return encodeValue(sample, contentType, content);
+  return encodeValue(encodedSample, contentType, content);
 };
 
 module.exports = {
-  oasToHarList: oasToHarList
+  oasToHarList: oasToHarList,
+  encodeSample: encodeSample
 }
