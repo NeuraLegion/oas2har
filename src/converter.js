@@ -26,6 +26,7 @@ var load = require('./loader');
 var urlTemplate = require('url-template');
 const { toXML } = require('jstoxml');
 const faker = require('faker');
+const querystring = require('querystring');
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
@@ -74,23 +75,28 @@ var createHar = function(swagger, path, method, queryParamValues) {
  * @return {object}
  */
 var getPayload = function(swagger, path, method) {
-  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
-    for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
+  const pathObj = swagger.paths[path][method];
+
+  if (typeof pathObj.parameters !== 'undefined') {
+    for (var i in pathObj.parameters) {
+      var param = pathObj.parameters[i]
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'body' &&
         typeof param.schema !== 'undefined') {
         try {
           const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger);
-          const paramContentType = swagger.consumes && swagger.consumes.length ?
-              faker.random.arrayElement(swagger.consumes)
-              : 'application/json';
+          let paramContentType;
+          if (pathObj.consumes && pathObj.consumes.length) {
+            paramContentType = faker.random.arrayElement(pathObj.consumes);
+          } else if (swagger.consumes && swagger.consumes.length) {
+            paramContentType = faker.random.arrayElement(swagger.consumes);
+          }
 
+          const contentType = paramContentType ? paramContentType : 'application/json';
           return {
-            mimeType: paramContentType,
-            text: encodeValue(sample, paramContentType, param.schema)
+            mimeType: contentType,
+            text: encodeSample(sample, contentType, param.schema)
           }
         } catch (err) {
-          console.log(err)
           return null
         }
       }
@@ -112,7 +118,7 @@ var getPayload = function(swagger, path, method) {
     const sample = OpenAPISampler.sample(content[contentType].schema, { skipReadOnly: true }, swagger);
     return {
       mimeType: contentType,
-      text: encodeValue(sample, contentType, sampleContent)
+      text: encodeSample(sample, contentType, sampleContent)
     }
   }
   return null
@@ -342,7 +348,6 @@ var oasToHarList = function(swagger) {
       return parseSwaggerDoc(docs, baseUrl)
     })
     .catch(function(err) {
-      console.log(err);
       throw new Error('Document is invalid. ' + err.message)
     })
 }
@@ -395,6 +400,51 @@ var resolveRef = function(oai, ref) {
   return recursive(oai, 1)
 }
 
+
+/**
+ * Iterate over all defined keys under encoding and apply encoding for them
+ *
+ * @param  {string[]} keys Array of keys referencing properties and how to encode them
+ * @param  {any} sample The sample whose properties are encoded
+ * @param  {object} content The content options
+ * @return {any}
+ */
+var encodeProperties = function(keys, sample, content) {
+  keys.forEach((encodingKey) => {
+    sample[encodingKey] = encodeValue(sample[encodingKey], content.encoding[encodingKey].contentType, content);
+  });
+  return sample;
+};
+
+/**
+ * Infer which content type is used from type of object. If encoding is defined use the encoding type.
+ *
+ * @param  {any} value Value for which the content type os determined
+ * @param  {string} paramKey Key of the param, that is the param name
+ * @param  {object} content The content options
+ * @return {string}
+ */
+var getMultipartContentType = function(value, paramKey, content) {
+
+  if (content.encoding && content.encoding[paramKey] && content.encoding[paramKey].contentType) {
+    return content.encoding[paramKey].contentType;
+  }
+
+  switch (typeof value) {
+    case 'object':
+      return 'application/json';
+
+    case 'string':
+    case 'number':
+    case 'boolean':
+      return 'text/plain';
+
+    default:
+      return 'application/octet-stream';
+  }
+};
+
+
 /**
  *
  * @param  {Object} swagger Swagger document
@@ -423,23 +473,16 @@ var serializePath = function (swagger, path, method) {
  *
  * @param  {any} value The sampled value to encode
  * @param  {string} contentType The content-type of the value
- * @param  {object} content The content object used for further details
+ * @param  {object} content The content options
  * @return {any}
  */
 var encodeValue = function(value, contentType, content) {
-  if (content.encoding) {
-    const encodingKeys = Object.keys(content.encoding);
-    encodingKeys.map((encodingKey) => {
-      value[encodingKey] = encodeValue(value[encodingKey], content.encoding[encodingKey].contentType, content)
-    });
-  }
-
   switch (contentType) {
     case 'application/json':
       return JSON.stringify(value);
 
     case 'application/x-www-form-urlencoded':
-      return Object.keys(value).map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(value[key])}`).join('&');
+      return querystring.stringify(value);
 
     case 'application/xml':
       const xmlOptions = {
@@ -449,28 +492,48 @@ var encodeValue = function(value, contentType, content) {
       return toXML(value, xmlOptions);
 
     case 'multipart/form-data':
-      let formData = new FormData();
-      Object.keys(value).forEach((key) => formData.append(key, value[key]));
-      return formData;
+      let inputNames = Object.keys(value);
+      let rawData = inputNames.reduce((params, key) => {
+        const param = `--956888039105887155673143
+          Content-Disposition: form-data; name="${key}"; filename="${key}"
+          Content-Type: ${getMultipartContentType(value[key], key, content)}
+          ${value[key]}`;
+        params.push(param);
+        return params;
+      }, []).join('\\r\\n');
+      rawData += '\\r\\n--956888039105887155673143--';
+      return rawData;
 
-    case 'application/octet-stream':
-    case 'text/plain':
-    case '*/*':
+    case 'image/jpweg':
+    case 'image/jpeg':
+      return Buffer.from([0xFF, 0xD8, 0xFF, 0xDB], 'hex').toString('base64');
+
+    case 'image/png':
+    case 'image/*':
+      return Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], 'hex').toString('base64');
+
+    default:
       if (typeof value === 'object') {
         value = JSON.stringify(value);
       }
       return Buffer.from(value).toString('base64');
 
-    case 'image/jpg':
-    case 'image/jpeg':
-      return Buffer.from('FF D8 FF DB').toString('base64');
-
-    case 'image/png':
-    case 'image/*':
-      return Buffer.from('89 50 4E 47 0D 0A 1A 0A').toString('base64');
   }
+};
 
-  return Buffer.from(value).toString('base64');
+/**
+ * Encode the sample
+ *
+ * @param  {any} sample Sample object to encode
+ * @param  {string} contentType The content-type of the value
+ * @param  {object} content The content options
+ * @return {any}
+ */
+var encodeSample = function(sample, contentType, content) {
+  if (content.encoding){
+    encodeProperties(Object.keys(content.encoding), sample, content);
+  }
+  return encodeValue(sample, contentType, content);
 };
 
 module.exports = {
