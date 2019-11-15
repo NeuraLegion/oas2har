@@ -12,7 +12,6 @@
     "@types/swagger-schema-official": "^2.0.18",
     "js-yaml": "^3.13.1",
     "url-template": "^2.0.8",
-    "faker": "^4.1.0",
     "jstoxml": "^1.6.0"
   },
   "typings": "./src/index.d.ts",

@@ -25,14 +25,14 @@ var OpenAPISampler = require('@neuralegion/openapi-sampler');
 var load = require('./loader');
 var urlTemplate = require('url-template');
 const { toXML } = require('jstoxml');
-const faker = require('faker');
 const querystring = require('querystring');
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
  *
  * @param  {Object} swagger           Swagger document
- * @param  {string} path              Key of the path
+ * @param  {string} path              Key clear
+ * of the path
  * @param  {string} method            Key of the method
  * @param  {Object} queryParamValues  Optional: Values for the query parameters if present
  * @return {Object}                   HAR Request object
@@ -84,17 +84,20 @@ var getPayload = function(swagger, path, method) {
         typeof param.schema !== 'undefined') {
         try {
           const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger);
-          let paramContentType;
+          let consumes;
           if (pathObj.consumes && pathObj.consumes.length) {
-            paramContentType = faker.random.arrayElement(pathObj.consumes);
+            consumes = pathObj.consumes;
           } else if (swagger.consumes && swagger.consumes.length) {
-            paramContentType = faker.random.arrayElement(swagger.consumes);
+            consumes = swagger.consumes;
           }
+          const paramContentType = OpenAPISampler.sample({
+            type: 'array',
+            examples: consumes ? consumes : ['application/json']
+          });
 
-          const contentType = paramContentType ? paramContentType : 'application/json';
           return {
-            mimeType: contentType,
-            text: encodeSample(sample, contentType, param.schema)
+            mimeType: paramContentType,
+            text: encodeSample(sample, paramContentType, param.schema)
           }
         } catch (err) {
           return null
@@ -112,7 +115,11 @@ var getPayload = function(swagger, path, method) {
     return null;
   }
 
-  const contentType = faker.random.arrayElement(keys);
+  const contentType = OpenAPISampler.sample({
+    type: 'array',
+    examples: keys
+  });
+
   if (content[contentType] && content[contentType].schema) {
     let sampleContent = content[contentType];
     const sample = OpenAPISampler.sample(content[contentType].schema, { skipReadOnly: true }, swagger);
@@ -497,11 +504,12 @@ var encodeValue = function(value, contentType, content) {
         const param = `--956888039105887155673143
           Content-Disposition: form-data; name="${key}"; filename="${key}"
           Content-Type: ${getMultipartContentType(value[key], key, content)}
+          
           ${value[key]}`;
         params.push(param);
         return params;
-      }, []).join('\\r\\n');
-      rawData += '\\r\\n--956888039105887155673143--';
+      }, []).join('\r\n');
+      rawData += '\r\n--956888039105887155673143--';
       return rawData;
 
     case 'image/jpweg':
