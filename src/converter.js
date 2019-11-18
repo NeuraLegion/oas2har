@@ -502,10 +502,22 @@ var encodeValue = function (value, contentType, content) {
     case 'multipart/form-data':
       let inputNames = Object.keys(value);
       let rawData = inputNames.reduce((params, key) => {
+        const multipartContentType = getMultipartContentType(value[key], key, content);
         let param = '--956888039105887155673143\r\n';
         param += `Content-Disposition: form-data; name="${key}"; filename="${key}"\r\n`;
-        param += `Content-Type: ${getMultipartContentType(value[key], key, content)}\r\n\r\n`;
-        param += `${value[key]}`;
+        param += `Content-Type: ${multipartContentType}\r\n\r\n`;
+
+        switch (multipartContentType) {
+          case 'application/json':
+            param += JSON.stringify(value[key]);
+            break;
+          case 'application/octet-stream':
+            param += Buffer.from(value[key]).toString('base64');
+            break;
+          default:
+            param += value[key];
+
+        }
         params.push(param);
         return params;
       }, []).join('\r\n');
