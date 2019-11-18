@@ -500,24 +500,22 @@ var encodeValue = function (value, contentType, content) {
       return toXML(value, xmlOptions);
 
     case 'multipart/form-data':
+    case 'multipart/mixin':
       let inputNames = Object.keys(value);
       let rawData = inputNames.reduce((params, key) => {
         const multipartContentType = getMultipartContentType(value[key], key, content);
         let param = '--956888039105887155673143\r\n';
-        param += `Content-Disposition: form-data; name="${key}"; filename="${key}"\r\n`;
-        param += `Content-Type: ${multipartContentType}\r\n\r\n`;
-
         switch (multipartContentType) {
+          case 'text/plain':
           case 'application/json':
-            param += JSON.stringify(value[key]);
-            break;
-          case 'application/octet-stream':
-            param += Buffer.from(value[key]).toString('base64');
+            param += `Content-Disposition: form-data; name="${key}"\r\n`;
             break;
           default:
-            param += value[key];
-
+            param += `Content-Disposition: form-data; name="${key}"; filename="${key}"\r\n`;
         }
+
+        param += `Content-Type: ${multipartContentType}\r\n\r\n`;
+        param += typeof value[key] === 'object' ? JSON.stringify(value[key]) : value[key];
         params.push(param);
         return params;
       }, []).join('\r\n');
