@@ -78,29 +78,29 @@ var getPayload = function(swagger, path, method) {
   const pathObj = swagger.paths[path][method]
 
   const bodyParams = getParameters(pathObj.parameters, swagger, 'body')
-  bodyParams.forEach((param) => {
-    if (!param.schema) {
-      return
-    }
-    try {
-      const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
-      let consumes
-      if (pathObj.consumes && pathObj.consumes.length) {
-        consumes = pathObj.consumes
-      } else if (swagger.consumes && swagger.consumes.length) {
-        consumes = swagger.consumes
+  for(const param of bodyParams) {
+    if (param.schema) {
+      try {
+        const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+        let consumes
+        if (pathObj.consumes && pathObj.consumes.length) {
+          consumes = pathObj.consumes
+        } else if (swagger.consumes && swagger.consumes.length) {
+          consumes = swagger.consumes
+        }
+
+        const paramContentType = OpenAPISampler.sample({
+          type: 'array',
+          examples: consumes ? consumes : ['application/json']
+        })
+
+        return encodePayload(sample, paramContentType)
+      } catch (err) {
+        return null
       }
-
-      const paramContentType = OpenAPISampler.sample({
-        type: 'array',
-        examples: consumes ? consumes : ['application/json']
-      })
-
-      return encodePayload(sample, paramContentType)
-    } catch (err) {
-      return null
     }
-  })
+  }
+
   let content = swagger.paths[path][method].requestBody
     ? swagger.paths[path][method].requestBody.content
     : null
@@ -579,6 +579,7 @@ var getParameters = function(parameters, swagger, location) {
         in: paramIn,
         schema: param.schema,
         name: param.name,
+        type: param.type,
         required: param.required ? param.required : false,
         description: param.description
       })
