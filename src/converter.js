@@ -24,13 +24,15 @@
 var OpenAPISampler = require('@neuralegion/openapi-sampler');
 var load = require('./loader');
 var urlTemplate = require('url-template');
-
+const { toXML } = require('jstoxml');
+const querystring = require('querystring');
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
  *
  * @param  {Object} swagger           Swagger document
- * @param  {string} path              Key of the path
+ * @param  {string} path              Key clear
+ * of the path
  * @param  {string} method            Key of the method
  * @param  {Object} queryParamValues  Optional: Values for the query parameters if present
  * @return {Object}                   HAR Request object
@@ -73,31 +75,57 @@ var createHar = function(swagger, path, method, queryParamValues) {
  * @return {object}
  */
 var getPayload = function(swagger, path, method) {
-  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
-    for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
+  const pathObj = swagger.paths[path][method];
+
+  if (typeof pathObj.parameters !== 'undefined') {
+    for (var i in pathObj.parameters) {
+      var param = pathObj.parameters[i]
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'body' &&
         typeof param.schema !== 'undefined') {
         try {
-          const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+          const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger);
+          let consumes;
+          if (pathObj.consumes && pathObj.consumes.length) {
+            consumes = pathObj.consumes;
+          } else if (swagger.consumes && swagger.consumes.length) {
+            consumes = swagger.consumes;
+          }
+          const paramContentType = OpenAPISampler.sample({
+            type: 'array',
+            examples: consumes ? consumes : ['application/json']
+          });
+
           return {
-            mimeType: 'application/json',
-            text: JSON.stringify(sample)
+            mimeType: paramContentType,
+            text: encodeSample(sample, paramContentType, param.schema)
           }
         } catch (err) {
-          console.log(err)
           return null
         }
       }
     }
   }
-  if (swagger.paths[path][method].requestBody && swagger.paths[path][method].requestBody.content &&
-    swagger.paths[path][method].requestBody.content['application/json'] &&
-    swagger.paths[path][method].requestBody.content['application/json'].schema) {
-    const sample = OpenAPISampler.sample(swagger.paths[path][method].requestBody.content['application/json'].schema, { skipReadOnly: true }, swagger)
+
+  let content = swagger.paths[path][method].requestBody ?
+      swagger.paths[path][method].requestBody.content
+      : null ;
+
+  const keys = Object.keys(content || {});
+  if (!keys.length) {
+    return null;
+  }
+
+  const contentType = OpenAPISampler.sample({
+    type: 'array',
+    examples: keys
+  });
+
+  if (content[contentType] && content[contentType].schema) {
+    let sampleContent = content[contentType];
+    const sample = OpenAPISampler.sample(content[contentType].schema, { skipReadOnly: true }, swagger);
     return {
-      mimeType: 'application/json',
-      text: JSON.stringify(sample)
+      mimeType: contentType,
+      text: encodeSample(sample, contentType, sampleContent)
     }
   }
   return null
@@ -379,6 +407,52 @@ var resolveRef = function(oai, ref) {
   return recursive(oai, 1)
 }
 
+
+/**
+ * Iterate over all defined keys under encoding and apply encoding for them
+ *
+ * @param  {string[]} keys Array of keys referencing properties and how to encode them
+ * @param  {any} sample The sample whose properties are encoded
+ * @param  {object} content The content options
+ * @return {object}
+ */
+var encodeProperties = function (keys, sample, content) {
+  const encodedSample = keys.reduce((encodedSample, encodingKey) => {
+    encodedSample[encodingKey] = encodeValue(sample[encodingKey], content.encoding[encodingKey].contentType, content);
+    return encodedSample;
+  }, {});
+  return Object.assign({}, sample, encodedSample);
+};
+
+/**
+ * Infer which content type is used from type of object. If encoding is defined use the encoding type.
+ *
+ * @param  {any} value Value for which the content type os determined
+ * @param  {string} paramKey Key of the param, that is the param name
+ * @param  {object} content The content options
+ * @return {string}
+ */
+var getMultipartContentType = function (value, paramKey, content) {
+
+  if (content.encoding && content.encoding[paramKey] && content.encoding[paramKey].contentType) {
+    return content.encoding[paramKey].contentType;
+  }
+
+  switch (typeof value) {
+    case 'object':
+      return 'application/json';
+
+    case 'string':
+    case 'number':
+    case 'boolean':
+      return 'text/plain';
+
+    default:
+      return 'application/octet-stream';
+  }
+};
+
+
 /**
  *
  * @param  {Object} swagger Swagger document
@@ -395,13 +469,93 @@ var serializePath = function (swagger, path, method) {
       var param = swagger.paths[path][method].parameters[i];
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'path') {
         const sample = OpenAPISampler.sample(param.schema || param, {}, swagger);
-        Object.assign(params, { [param.name]: sample });
+        Object.assign(params, {[param.name]: sample});
       }
     }
   }
   return templateUrl.expand(params);
 }
 
+/*
+ * Returns the encoded value for defined content
+ *
+ * @param  {any} value The sampled value to encode
+ * @param  {string} contentType The content-type of the value
+ * @param  {object} content The content options
+ * @return {any}
+ */
+var encodeValue = function (value, contentType, content) {
+  switch (contentType) {
+    case 'application/json':
+      return JSON.stringify(value);
+
+    case 'application/x-www-form-urlencoded':
+      return querystring.stringify(value);
+
+    case 'application/xml':
+      const xmlOptions = {
+        header: true,
+        indent: '  '
+      };
+      return toXML(value, xmlOptions);
+
+    case 'multipart/form-data':
+    case 'multipart/mixin':
+      let inputNames = Object.keys(value);
+      let rawData = inputNames.reduce((params, key) => {
+        const multipartContentType = getMultipartContentType(value[key], key, content);
+        let param = '--956888039105887155673143\r\n';
+        switch (multipartContentType) {
+          case 'text/plain':
+          case 'application/json':
+            param += `Content-Disposition: form-data; name="${key}"\r\n`;
+            break;
+          default:
+            param += `Content-Disposition: form-data; name="${key}"; filename="${key}"\r\n`;
+        }
+
+        param += `Content-Type: ${multipartContentType}\r\n\r\n`;
+        param += typeof value[key] === 'object' ? JSON.stringify(value[key]) : value[key];
+        params.push(param);
+        return params;
+      }, []).join('\r\n');
+      rawData += '\r\n--956888039105887155673143--';
+      return rawData;
+
+    case 'image/jpg':
+    case 'image/jpeg':
+      return Buffer.from([0xFF, 0xD8, 0xFF, 0xDB], 'hex').toString('base64');
+
+    case 'image/png':
+    case 'image/*':
+      return Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], 'hex').toString('base64');
+
+    default:
+      if (typeof value === 'object') {
+        value = JSON.stringify(value);
+      }
+      return Buffer.from(value).toString('base64');
+
+  }
+};
+
+/**
+ * Encode the sample
+ *
+ * @param  {any} sample Sample object to encode
+ * @param  {string} contentType The content-type of the value
+ * @param  {object} content The content options
+ * @return {any}
+ */
+var encodeSample = function (sample, contentType, content) {
+  let encodedSample = sample;
+  if (content.encoding) {
+    encodedSample = encodeProperties(Object.keys(content.encoding), sample, content);
+  }
+  return encodeValue(encodedSample, contentType, content);
+};
+
 module.exports = {
-  oasToHarList: oasToHarList
+  oasToHarList: oasToHarList,
+  encodeSample: encodeSample
 }

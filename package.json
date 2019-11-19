@@ -7,11 +7,12 @@
   ],
   "main": "./src/index.js",
   "dependencies": {
-    "@neuralegion/openapi-sampler": "^0.6.1",
+    "@neuralegion/openapi-sampler": "^0.7.1",
     "@types/har-format": "^1.2.4",
     "@types/swagger-schema-official": "^2.0.18",
     "js-yaml": "^3.13.1",
-    "url-template": "^2.0.8"
+    "url-template": "^2.0.8",
+    "jstoxml": "^1.6.0"
   },
   "typings": "./src/index.d.ts",
   "repository": {
@@ -36,11 +37,11 @@
     "@semantic-release/git": "^7.0.17",
     "eslint": "^6.6.0",
     "esprima": "^4.0.1",
-    "husky": "^3.0.7",
+    "husky": "^3.1.0",
     "jest": "^24.8.0",
     "lint-staged": "^9.4.0",
     "prettier": "^1.11.1",
-    "semantic-release": "^15.13.27"
+    "semantic-release": "^15.13.31"
   },
   "scripts": {
     "lint": "eslint",
