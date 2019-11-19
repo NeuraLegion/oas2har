@@ -77,28 +77,25 @@ var createHar = function(swagger, path, method, queryParamValues) {
 var getPayload = function(swagger, path, method) {
   const pathObj = swagger.paths[path][method]
 
-  const parameters = getParameters(pathObj.parameters)
-
-  parameters.forEach((param) => {
-    if (param.in === 'body' && param.schema) {
-      try {
-        const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
-        let consumes
-        if (pathObj.consumes && pathObj.consumes.length) {
-          consumes = pathObj.consumes
-        } else if (swagger.consumes && swagger.consumes.length) {
-          consumes = swagger.consumes
-        }
-
-        const paramContentType = OpenAPISampler.sample({
-          type: 'array',
-          examples: consumes ? consumes : ['application/json']
-        })
-
-        return encodePayload(sample, paramContentType)
-      } catch (err) {
-        return null
+  const bodyParams = getParameters(pathObj.parameters, swagger, 'body')
+  bodyParams.forEach((param) => {
+    try {
+      const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+      let consumes
+      if (pathObj.consumes && pathObj.consumes.length) {
+        consumes = pathObj.consumes
+      } else if (swagger.consumes && swagger.consumes.length) {
+        consumes = swagger.consumes
       }
+
+      const paramContentType = OpenAPISampler.sample({
+        type: 'array',
+        examples: consumes ? consumes : ['application/json']
+      })
+
+      return encodePayload(sample, paramContentType)
+    } catch (err) {
+      return null
     }
   })
   let content = swagger.paths[path][method].requestBody
@@ -171,20 +168,18 @@ var getQueryStrings = function(swagger, path, method, values) {
 
   var queryStrings = []
 
-  const params = getParameters(swagger.paths[path][method].parameters)
-  params.forEach((param) => {
-    if (param.in === 'query') {
-      const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-      queryStrings.push({
-        name: param.name,
-        value:
-          typeof values[param.name] === 'undefined'
-            ? typeof param.default === 'undefined'
-              ? encodeURIComponent(typeof sample === 'object' ? JSON.stringify(sample) : sample)
-              : param.default + ''
-            : values[param.name] + '' /* adding a empty string to convert to string */
-      })
-    }
+  const queryParams = getParameters(swagger.paths[path][method].parameters, swagger, 'query')
+  queryParams.forEach((param) => {
+    const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+    queryStrings.push({
+      name: param.name,
+      value:
+        typeof values[param.name] === 'undefined'
+          ? typeof param.default === 'undefined'
+            ? encodeURIComponent(typeof sample === 'object' ? JSON.stringify(sample) : sample)
+            : param.default + ''
+          : values[param.name] + '' /* adding a empty string to convert to string */
+    })
   })
 
   return queryStrings
@@ -237,15 +232,13 @@ var getHeadersArray = function(swagger, path, method) {
   }
 
   // headers defined in path object:
-  const headerParams = getParameters(pathObj.parameters)
+  const headerParams = getParameters(pathObj.parameters, swagger, 'header')
   headerParams.forEach((param) => {
-    if (param.in === 'header') {
-      const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-      headers.push({
-        name: param.name,
-        value: typeof sample === 'object' ? JSON.stringify(sample) : sample
-      })
-    }
+    const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+    headers.push({
+      name: param.name,
+      value: typeof sample === 'object' ? JSON.stringify(sample) : sample
+    })
   })
 
   // security:
@@ -451,12 +444,10 @@ var serializePath = function(swagger, path, method) {
   const templateUrl = urlTemplate.parse(path)
   const params = {}
 
-  const pathParams = getParameters(swagger.paths[path][method].parameters)
+  const pathParams = getParameters(swagger.paths[path][method].parameters, swagger, 'path')
   pathParams.forEach((param) => {
-    if (param.in === 'path') {
-      const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-      Object.assign(params, { [param.name]: sample })
-    }
+    const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+    Object.assign(params, { [param.name]: sample })
   })
 
   return templateUrl.expand(params)
@@ -563,27 +554,31 @@ var encodePayload = function(sample, contentType, encoding) {
  *
  * @param  {object} parameters all parameters to iterate over
  * @param  {object} swagger swagger document
+ * @param  {string} location location of the parameter in swagger document (path, query, body, header)
  * @return {array}
  */
-var getParameters = function(parameters, swagger) {
-  const params = [];
+var getParameters = function(parameters, swagger, location) {
   if (typeof parameters === 'undefined') {
-    for (var i in parameters) {
-      var param = parameters[i]
+    return []
+  }
+  const params = [];
 
-      if (typeof param['$ref'] === 'string' && !/^http/.test(param['$ref'])) {
-        param = resolveRef(swagger, param['$ref'])
-      }
-      if (typeof param.in !== 'undefined') {
-        const param = parameters[i];
-        params.push({
-          in: param.in.toLowerCase(),
-          schema: param.schema,
-          name: param.name,
-          required: param.required ? param.required : false,
-          description: param.description
-        })
-      }
+  for (var i in parameters) {
+    var param = parameters[i]
+
+    if (typeof param['$ref'] === 'string' && !/^http/.test(param['$ref'])) {
+      param = resolveRef(swagger, param['$ref'])
+    }
+
+    const paramIn = param.in ? param.in.toLowerCase() : undefined;
+    if (param.schema && paramIn === location) {
+      params.push({
+        in: paramIn,
+        schema: param.schema,
+        name: param.name,
+        required: param.required ? param.required : false,
+        description: param.description
+      })
     }
   }
 
