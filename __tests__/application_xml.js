@@ -1,7 +1,7 @@
-const { encodeSample } = require('../src');
+const { encodePayload } = require('../src');
 const { toXML } = require('jstoxml');
 
-test('Test encodeSample for application/xml', function() {
+test('Test encodePayload for application/xml', function() {
   const xmlSample = {
     name: 'Tom',
     surname: 'Trailer',
@@ -13,6 +13,6 @@ test('Test encodeSample for application/xml', function() {
     indent: '  '
   };
 
-  const xmlEncoded = encodeSample(xmlSample, 'application/xml', {});
-  expect(xmlEncoded).toEqual(toXML(xmlSample, xmlOptions));
+  const xmlEncoded = encodePayload(xmlSample, 'application/xml', {});
+  expect(xmlEncoded.text).toEqual(toXML(xmlSample, xmlOptions));
 });
