@@ -79,6 +79,9 @@ var getPayload = function(swagger, path, method) {
 
   const bodyParams = getParameters(pathObj.parameters, swagger, 'body')
   bodyParams.forEach((param) => {
+    if (!param.schema) {
+      return
+    }
     try {
       const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
       let consumes
@@ -561,7 +564,7 @@ var getParameters = function(parameters, swagger, location) {
   if (typeof parameters === 'undefined') {
     return []
   }
-  const params = [];
+  const params = []
 
   for (var i in parameters) {
     var param = parameters[i]
@@ -571,7 +574,7 @@ var getParameters = function(parameters, swagger, location) {
     }
 
     const paramIn = param.in ? param.in.toLowerCase() : undefined;
-    if (param.schema && paramIn === location) {
+    if (paramIn === location) {
       params.push({
         in: paramIn,
         schema: param.schema,
@@ -582,7 +585,7 @@ var getParameters = function(parameters, swagger, location) {
     }
   }
 
-  return params;
+  return params
 }
 
 module.exports = {
