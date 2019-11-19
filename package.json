@@ -7,7 +7,7 @@
   ],
   "main": "./src/index.js",
   "dependencies": {
-    "@neuralegion/openapi-sampler": "^0.6.1",
+    "@neuralegion/openapi-sampler": "^0.7.1",
     "@types/har-format": "^1.2.4",
     "@types/swagger-schema-official": "^2.0.18",
     "js-yaml": "^3.13.1",
