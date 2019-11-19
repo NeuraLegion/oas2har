@@ -5,13 +5,7 @@ module.exports = {
       {
         parserOpts: {
           noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES']
-        },
-        releaseRules: [
-          {
-            type: 'refactor',
-            release: 'patch'
-          }
-        ]
+        }
       }
     ],
     [
