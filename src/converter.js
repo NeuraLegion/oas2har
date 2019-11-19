@@ -77,38 +77,30 @@ var createHar = function(swagger, path, method, queryParamValues) {
 var getPayload = function(swagger, path, method) {
   const pathObj = swagger.paths[path][method]
 
-  if (typeof pathObj.parameters !== 'undefined') {
-    for (var i in pathObj.parameters) {
-      var param = pathObj.parameters[i]
-      if (
-        typeof param.in !== 'undefined' &&
-        param.in.toLowerCase() === 'body' &&
-        typeof param.schema !== 'undefined'
-      ) {
-        try {
-          const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+  const parameters = getParameters(pathObj.parameters)
 
-          let consumes
-
-          if (pathObj.consumes && pathObj.consumes.length) {
-            consumes = pathObj.consumes
-          } else if (swagger.consumes && swagger.consumes.length) {
-            consumes = swagger.consumes
-          }
-
-          const paramContentType = OpenAPISampler.sample({
-            type: 'array',
-            examples: consumes ? consumes : ['application/json']
-          })
-
-          return encodePayload(sample, paramContentType)
-        } catch (err) {
-          return null
+  parameters.forEach((param) => {
+    if (param.in === 'body' && param.schema) {
+      try {
+        const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+        let consumes
+        if (pathObj.consumes && pathObj.consumes.length) {
+          consumes = pathObj.consumes
+        } else if (swagger.consumes && swagger.consumes.length) {
+          consumes = swagger.consumes
         }
+
+        const paramContentType = OpenAPISampler.sample({
+          type: 'array',
+          examples: consumes ? consumes : ['application/json']
+        })
+
+        return encodePayload(sample, paramContentType)
+      } catch (err) {
+        return null
       }
     }
-  }
-
+  })
   let content = swagger.paths[path][method].requestBody
     ? swagger.paths[path][method].requestBody.content
     : null
@@ -179,26 +171,21 @@ var getQueryStrings = function(swagger, path, method, values) {
 
   var queryStrings = []
 
-  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
-    for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
-      if (typeof param['$ref'] === 'string' && !/^http/.test(param['$ref'])) {
-        param = resolveRef(swagger, param['$ref'])
-      }
-      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
-        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-        queryStrings.push({
-          name: param.name,
-          value:
-            typeof values[param.name] === 'undefined'
-              ? typeof param.default === 'undefined'
-                ? encodeURIComponent(typeof sample === 'object' ? JSON.stringify(sample) : sample)
-                : param.default + ''
-              : values[param.name] + '' /* adding a empty string to convert to string */
-        })
-      }
+  const params = getParameters(swagger.paths[path][method].parameters)
+  params.forEach((param) => {
+    if (param.in === 'query') {
+      const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+      queryStrings.push({
+        name: param.name,
+        value:
+          typeof values[param.name] === 'undefined'
+            ? typeof param.default === 'undefined'
+              ? encodeURIComponent(typeof sample === 'object' ? JSON.stringify(sample) : sample)
+              : param.default + ''
+            : values[param.name] + '' /* adding a empty string to convert to string */
+      })
     }
-  }
+  })
 
   return queryStrings
 }
@@ -250,18 +237,16 @@ var getHeadersArray = function(swagger, path, method) {
   }
 
   // headers defined in path object:
-  if (typeof pathObj.parameters !== 'undefined') {
-    for (var k in pathObj.parameters) {
-      var param = pathObj.parameters[k]
-      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
-        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-        headers.push({
-          name: param.name,
-          value: typeof sample === 'object' ? JSON.stringify(sample) : sample
-        })
-      }
+  const headerParams = getParameters(pathObj.parameters)
+  headerParams.forEach((param) => {
+    if (param.in === 'header') {
+      const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+      headers.push({
+        name: param.name,
+        value: typeof sample === 'object' ? JSON.stringify(sample) : sample
+      })
     }
-  }
+  })
 
   // security:
   let securityObj
@@ -466,15 +451,14 @@ var serializePath = function(swagger, path, method) {
   const templateUrl = urlTemplate.parse(path)
   const params = {}
 
-  if (typeof swagger.paths[path][method].parameters !== 'undefined') {
-    for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
-      if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'path') {
-        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-        Object.assign(params, { [param.name]: sample })
-      }
+  const pathParams = getParameters(swagger.paths[path][method].parameters)
+  pathParams.forEach((param) => {
+    if (param.in === 'path') {
+      const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+      Object.assign(params, { [param.name]: sample })
     }
-  }
+  })
+
   return templateUrl.expand(params)
 }
 
@@ -572,6 +556,38 @@ var encodePayload = function(sample, contentType, encoding) {
       contentType,
     text: encodeValue(encodedSample, contentType, encoding)
   }
+}
+
+/**
+ * Extract all parameters from swagger
+ *
+ * @param  {object} parameters all parameters to iterate over
+ * @param  {object} swagger swagger document
+ * @return {array}
+ */
+var getParameters = function(parameters, swagger) {
+  const params = [];
+  if (typeof parameters === 'undefined') {
+    for (var i in parameters) {
+      var param = parameters[i]
+
+      if (typeof param['$ref'] === 'string' && !/^http/.test(param['$ref'])) {
+        param = resolveRef(swagger, param['$ref'])
+      }
+      if (typeof param.in !== 'undefined') {
+        const param = parameters[i];
+        params.push({
+          in: param.in.toLowerCase(),
+          schema: param.schema,
+          name: param.name,
+          required: param.required ? param.required : false,
+          description: param.description
+        })
+      }
+    }
+  }
+
+  return params;
 }
 
 module.exports = {
