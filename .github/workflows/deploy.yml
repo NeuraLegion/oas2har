@@ -16,5 +16,14 @@ jobs:
       - run: npm ci
       - run: npm run semantic-release
         env:
-          NPM_TOKEN: ${{secrets.npm_token}}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+      - uses: actions/setup-node@v1
+        with:
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@NeuraLegion'
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
