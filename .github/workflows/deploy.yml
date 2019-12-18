@@ -2,8 +2,8 @@ name: Automated deploy
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   release:
@@ -13,17 +13,16 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: 12
+      - name: Set RELEASE_VERSION env
+        run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
       - run: npm ci
-      - run: npm run semantic-release
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      - run: npm publish
+      - run: npm publish --tag=$RELEASE_VERSION
         env:
           NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
       - uses: actions/setup-node@v1
         with:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@NeuraLegion'
-      - run: npm publish
+      - run: npm publish --tag=$RELEASE_VERSION
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
