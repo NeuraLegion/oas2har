@@ -297,7 +297,7 @@ var getHeadersArray = function(swagger, path, method) {
     let authType = secDefinition.type.toLowerCase()
     switch (authType) {
       case 'http':
-        let authScheme = secDefinition.toLowerCase()
+        let authScheme = secDefinition.scheme.toLowerCase()
         switch (authScheme) {
           case 'bearer':
             oauthDef = secScheme
