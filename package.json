@@ -9,10 +9,10 @@
   "dependencies": {
     "@neuralegion/openapi-sampler": "^0.7.2",
     "@types/har-format": "^1.2.4",
-    "@types/swagger-schema-official": "^2.0.18",
+    "@types/swagger-schema-official": "^2.0.20",
     "js-yaml": "^3.13.1",
     "url-template": "^2.0.8",
-    "jstoxml": "^1.6.0"
+    "jstoxml": "^1.6.1"
   },
   "typings": "./src/index.d.ts",
   "repository": {
