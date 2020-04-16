@@ -1,3 +1,5 @@
-const swagger2har = require('./converter')
+const { oasToHarList } = require('./converter')
 
-module.exports = swagger2har
+module.exports = {
+  oasToHarList
+}

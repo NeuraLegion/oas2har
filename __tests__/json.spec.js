@@ -1,6 +1,6 @@
-const { encodePayload } = require('../src');
+const { encodePayload } = require('../src/converter');
 
-test('Test encodePayload for application/json', function() {
+test('Test encodePayload for application/json', () => {
   const jsonSample = {
     name: 'Tom',
     surname: 'Trailer',

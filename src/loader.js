@@ -1,31 +1,43 @@
 const fs = require('fs')
 const { promisify } = require('util')
 const { extname } = require('path')
+const { ok } = require('assert')
 
 const readFile = promisify(fs.readFile)
 
-function load(path) {
-  if (!path) {
-    return Promise.reject(new TypeError('Path is invalid.'))
+/**
+ * @internal
+ * @param path - path to oas specification
+ * @returns {Promise<string>}
+ */
+const read = async (path) => {
+  try {
+    return await readFile(path, 'utf8')
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      throw new Error('File not found!')
+    }
+
+    throw new Error('Cannot read file.');
   }
-
-  var ext = extname(path.toLowerCase())
-
-  return readFile(path, 'utf8')
-    .then(function(content) {
-      if (ext === '.yml' || ext === '.yaml') {
-        return require('js-yaml').safeLoad(content)
-      } else {
-        return JSON.parse(content)
-      }
-    })
-    .catch(function(err) {
-      if (err.code === 'ENOENT') {
-        throw new Error('File not found!')
-      } else {
-        throw err
-      }
-    })
 }
 
-module.exports = load;
+/**
+ *
+ * @param path - path to oas specification
+ * @returns {Promise<any>}
+ */
+const load = async (path) => {
+  ok(path, 'Path is not provided.')
+
+  const ext = extname(path.toLowerCase())
+  const content = await read(path)
+
+  if (ext === '.yml' || ext === '.yaml') {
+    return require('js-yaml').safeLoad(content)
+  }
+
+  return JSON.parse(content)
+}
+
+module.exports = load

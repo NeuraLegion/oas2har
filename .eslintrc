@@ -5,7 +5,7 @@
     "quotes": [2, "single"]
   },
   "env": {
-    "browser": true,
+    "browser": false,
     "node": true
   }
 }
