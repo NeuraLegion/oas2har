@@ -26,24 +26,25 @@ const load = require('./loader')
 const template = require('url-template')
 const { toXML } = require('jstoxml')
 const querystring = require('querystring')
+const { resolveRef, removeTrailingSlash, removeLeadingSlash } = require('./utils')
+const { BOUNDARY, BASE64_PATTERN } = require('./common')
 
 /**
  * Create HAR Request object for path and method pair described in given swagger.
  *
  * @param  {Object} swagger           Swagger document
+ * @param  {string} baseUrl           Base URL
  * @param  {string} path              Key clear
  * of the path
  * @param  {string} method            Key of the method
  * @param  {Object} queryParamValues  Optional: Values for the query parameters if present
  * @return {Object}                   HAR Request object
  */
-const createHar = function (swagger, path, method, queryParamValues) {
+const createHar = (swagger, baseUrl, path, method, queryParamValues) => {
   // if the operational parameter is not provided, set it to empty object
   if (typeof queryParamValues === 'undefined') {
     queryParamValues = {}
   }
-
-  const baseUrl = getBaseUrl(swagger)
 
   const har = {
     method: method.toUpperCase(),
@@ -74,7 +75,7 @@ const createHar = function (swagger, path, method, queryParamValues) {
  * @param  {string} method
  * @return {object}
  */
-const getPayload = function (swagger, path, method) {
+const getPayload = (swagger, path, method) => {
   const pathObj = swagger.paths[path][method]
 
   if (typeof pathObj.parameters !== 'undefined') {
@@ -132,26 +133,44 @@ const getPayload = function (swagger, path, method) {
 }
 
 /**
+ * Parses the URLs from the given swagger.
+ *
+ * @param {Object} swagger Swagger document
+ * @returns {string[]}
+ */
+const parseUrls = (swagger) => {
+  if (!Array.isArray(swagger.servers)) {
+    const basePath = (typeof swagger.basePath !== 'undefined' ? removeLeadingSlash(swagger.basePath) : '')
+    const host = removeTrailingSlash(swagger.host);
+    const schemes = typeof swagger.schemes !== 'undefined' ? swagger.schemes : ['https']
+    return schemes.map((x) => x + '://' + removeTrailingSlash(host + '/' + basePath))
+  }
+
+  return swagger.servers.map((server) => removeTrailingSlash(server.url))
+}
+
+/**
  * Gets the base URL constructed from the given swagger.
  *
  * @param  {Object} swagger Swagger document
  * @return {string}         Base URL
  */
-const getBaseUrl = function (swagger) {
-  if (swagger.servers) return swagger.servers[0].url
+const getBaseUrl = (swagger) => {
+  const urls = parseUrls(swagger);
 
-  let baseUrl = ''
+  let preferredUrls = urls.filter((x) => x.startsWith('https') || x.startsWith('wss'))
 
-  baseUrl += typeof swagger.schemes !== 'undefined' ? swagger.schemes[0] : 'http'
-
-  baseUrl += '://' + swagger.host
-
-  if (typeof swagger.basePath !== 'undefined' && swagger.basePath !== '/') {
-    baseUrl += swagger.basePath
+  if (!preferredUrls.length) {
+    preferredUrls = urls
   }
 
-  return baseUrl
+  return sample({
+    type: 'array',
+    examples: preferredUrls,
+  })
 }
+
+exports.getBaseUrl = getBaseUrl;
 
 /**
  * Get array of objects describing the query parameters for a path and method pair
@@ -163,7 +182,7 @@ const getBaseUrl = function (swagger) {
  * @param  {Object} values  Optional: query parameter values to use in the snippet if present
  * @return {array}          List of objects describing the query strings
  */
-const getQueryStrings = function (swagger, path, method, values) {
+const getQueryStrings = (swagger, path, method, values) => {
   // Set the optional parameter if it's not provided
   if (typeof values === 'undefined') {
     values = {}
@@ -204,7 +223,7 @@ const getQueryStrings = function (swagger, path, method, values) {
  * @param  {string} method  Key of the method
  * @return {array}          List of objects describing the header
  */
-const getHeadersArray = function (swagger, path, method) {
+const getHeadersArray = (swagger, path, method) => {
   const headers = []
 
   const pathObj = swagger.paths[path][method]
@@ -339,7 +358,7 @@ const getHeadersArray = function (swagger, path, method) {
  * @param  {object}   swagger          A swagger document or path to doc
  * @returns  {Promise}                 Array of HAR files
  */
-const oasToHarList = function (swagger) {
+const oasToHarList = (swagger) => {
   const docAsyncTask = typeof swagger === 'string' ? load(swagger) : Promise.resolve(swagger)
 
   return docAsyncTask
@@ -351,6 +370,7 @@ const oasToHarList = function (swagger) {
       throw new Error('Document is invalid. ' + err.message)
     })
 }
+exports.oasToHarList = oasToHarList;
 
 /**
  * Produces array of HAR files for given Swagger document
@@ -359,12 +379,18 @@ const oasToHarList = function (swagger) {
  * @param baseUrl         Base URL
  * @returns {Array}       Array of HAR files
  */
-const parseSwaggerDoc = function (swagger, baseUrl) {
+const parseSwaggerDoc = (swagger, baseUrl) => {
   const harList = []
+
   for (const path in swagger.paths) {
+    if (path.startsWith('x-swagger-router-controller')) {
+      continue
+    }
+
     for (const method in swagger.paths[path]) {
-      const url = baseUrl + path
-      const har = createHar(swagger, path, method)
+      const url = removeTrailingSlash(baseUrl) + '/' + removeLeadingSlash(path)
+      const har = createHar(swagger, baseUrl, path, method)
+
       harList.push({
         method: method.toUpperCase(),
         url: url,
@@ -376,30 +402,7 @@ const parseSwaggerDoc = function (swagger, baseUrl) {
 
   return harList
 }
-
-/**
- * Returns the value referenced in the given reference string
- *
- * @param  {object} oai
- * @param  {string} ref A reference string
- * @return {any}
- */
-const resolveRef = function (oai, ref) {
-  const parts = ref.split('/')
-
-  if (parts.length <= 1) return {}
-
-  const recursive = function (obj, index) {
-    if (index + 1 < parts.length) {
-      const newCount = index + 1
-      return recursive(obj[parts[index]], newCount)
-    }
-
-    return obj[parts[index]]
-  }
-
-  return recursive(oai, 1)
-}
+exports.parseSwaggerDoc = parseSwaggerDoc;
 
 /**
  * Iterate over all defined keys under encoding and apply encoding for them
@@ -417,7 +420,6 @@ const encodeProperties = function (keys, data, encoding) {
   return Object.assign({}, data, encodedSample)
 }
 
-const BASE64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/
 /**
  * Infer which content type is used from type of object. If encoding is defined use the encoding type.
  *
@@ -435,7 +437,7 @@ const getMultipartContentType = function (value, paramKey, encoding) {
     case 'object':
       return 'application/json'
     case 'string':
-      return BASE64.test(value) ? 'application/octet-stream' : 'text/plain'
+      return BASE64_PATTERN.test(value) ? 'application/octet-stream' : 'text/plain'
     case 'number':
     case 'boolean':
       return 'text/plain'
@@ -466,8 +468,6 @@ const serializePath = function (swagger, path, method) {
   }
   return templateUrl.expand(params)
 }
-
-const BOUNDARY = '956888039105887155673143'
 
 /*
  * Returns the encoded value for defined content
@@ -562,8 +562,5 @@ const encodePayload = function (data, contentType, encoding) {
     text: encodeValue(encodedData, contentType, encoding),
   }
 }
+exports.encodePayload = encodePayload;
 
-module.exports = {
-  oasToHarList: oasToHarList,
-  encodePayload: encodePayload,
-}
