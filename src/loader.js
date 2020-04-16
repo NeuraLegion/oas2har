@@ -9,7 +9,7 @@ function load(path) {
     return Promise.reject(new TypeError('Path is invalid.'))
   }
 
-  var ext = extname(path.toLowerCase())
+  const ext = extname(path.toLowerCase())
 
   return readFile(path, 'utf8')
     .then(function(content) {

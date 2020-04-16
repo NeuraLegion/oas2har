@@ -21,9 +21,9 @@
  * Source code initially pulled from: https://github.com/ErikWittern/swagger-snippet/blob/master/swagger-to-har.js
  */
 
-var OpenAPISampler = require('@neuralegion/openapi-sampler')
-var load = require('./loader')
-var urlTemplate = require('url-template')
+const { sample } = require('@neuralegion/openapi-sampler')
+const load = require('./loader')
+const template = require('url-template')
 const { toXML } = require('jstoxml')
 const querystring = require('querystring')
 
@@ -37,15 +37,15 @@ const querystring = require('querystring')
  * @param  {Object} queryParamValues  Optional: Values for the query parameters if present
  * @return {Object}                   HAR Request object
  */
-var createHar = function(swagger, path, method, queryParamValues) {
+const createHar = function (swagger, path, method, queryParamValues) {
   // if the operational parameter is not provided, set it to empty object
   if (typeof queryParamValues === 'undefined') {
     queryParamValues = {}
   }
 
-  var baseUrl = getBaseUrl(swagger)
+  const baseUrl = getBaseUrl(swagger)
 
-  var har = {
+  const har = {
     method: method.toUpperCase(),
     url: baseUrl + serializePath(swagger, path, method),
     headers: getHeadersArray(swagger, path, method),
@@ -53,12 +53,12 @@ var createHar = function(swagger, path, method, queryParamValues) {
     httpVersion: 'HTTP/1.1',
     cookies: [],
     headersSize: 0,
-
-    bodySize: 0
+    bodySize: 0,
   }
 
   // get payload data, if available:
-  var postData = getPayload(swagger, path, method)
+  const postData = getPayload(swagger, path, method)
+
   if (postData) har.postData = postData
 
   return har
@@ -74,19 +74,19 @@ var createHar = function(swagger, path, method, queryParamValues) {
  * @param  {string} method
  * @return {object}
  */
-var getPayload = function(swagger, path, method) {
+const getPayload = function (swagger, path, method) {
   const pathObj = swagger.paths[path][method]
 
   if (typeof pathObj.parameters !== 'undefined') {
-    for (var i in pathObj.parameters) {
-      var param = pathObj.parameters[i]
+    for (let i in pathObj.parameters) {
+      const param = pathObj.parameters[i]
       if (
         typeof param.in !== 'undefined' &&
         param.in.toLowerCase() === 'body' &&
         typeof param.schema !== 'undefined'
       ) {
         try {
-          const sample = OpenAPISampler.sample(param.schema, { skipReadOnly: true }, swagger)
+          const data = sample(param.schema, { skipReadOnly: true }, swagger)
 
           let consumes
 
@@ -96,12 +96,12 @@ var getPayload = function(swagger, path, method) {
             consumes = swagger.consumes
           }
 
-          const paramContentType = OpenAPISampler.sample({
+          const paramContentType = sample({
             type: 'array',
-            examples: consumes ? consumes : ['application/json']
+            examples: consumes ? consumes : ['application/json'],
           })
 
-          return encodePayload(sample, paramContentType)
+          return encodePayload(data, paramContentType)
         } catch (err) {
           return null
         }
@@ -118,19 +118,15 @@ var getPayload = function(swagger, path, method) {
     return null
   }
 
-  const contentType = OpenAPISampler.sample({
+  const contentType = sample({
     type: 'array',
-    examples: keys
+    examples: keys,
   })
 
   if (content[contentType] && content[contentType].schema) {
-    let sampleContent = content[contentType]
-    const sample = OpenAPISampler.sample(
-      content[contentType].schema,
-      { skipReadOnly: true },
-      swagger
-    )
-    return encodePayload(sample, contentType, sampleContent.encoding)
+    const sampleContent = content[contentType]
+    const data = sample(content[contentType].schema, { skipReadOnly: true }, swagger)
+    return encodePayload(data, contentType, sampleContent.encoding)
   }
   return null
 }
@@ -141,16 +137,12 @@ var getPayload = function(swagger, path, method) {
  * @param  {Object} swagger Swagger document
  * @return {string}         Base URL
  */
-var getBaseUrl = function(swagger) {
+const getBaseUrl = function (swagger) {
   if (swagger.servers) return swagger.servers[0].url
 
-  var baseUrl = ''
+  let baseUrl = ''
 
-  if (typeof swagger.schemes !== 'undefined') {
-    baseUrl += swagger.schemes[0]
-  } else {
-    baseUrl += 'http'
-  }
+  baseUrl += typeof swagger.schemes !== 'undefined' ? swagger.schemes[0] : 'http'
 
   baseUrl += '://' + swagger.host
 
@@ -171,30 +163,30 @@ var getBaseUrl = function(swagger) {
  * @param  {Object} values  Optional: query parameter values to use in the snippet if present
  * @return {array}          List of objects describing the query strings
  */
-var getQueryStrings = function(swagger, path, method, values) {
+const getQueryStrings = function (swagger, path, method, values) {
   // Set the optional parameter if it's not provided
   if (typeof values === 'undefined') {
     values = {}
   }
 
-  var queryStrings = []
+  const queryStrings = []
 
   if (typeof swagger.paths[path][method].parameters !== 'undefined') {
-    for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
+    for (let i in swagger.paths[path][method].parameters) {
+      let param = swagger.paths[path][method].parameters[i]
       if (typeof param['$ref'] === 'string' && !/^http/.test(param['$ref'])) {
         param = resolveRef(swagger, param['$ref'])
       }
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
-        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+        const data = sample(param.schema || param, {}, swagger)
         queryStrings.push({
           name: param.name,
           value:
             typeof values[param.name] === 'undefined'
               ? typeof param.default === 'undefined'
-                ? encodeURIComponent(typeof sample === 'object' ? JSON.stringify(sample) : sample)
+                ? encodeURIComponent(typeof data === 'object' ? JSON.stringify(data) : data)
                 : param.default + ''
-              : values[param.name] + '' /* adding a empty string to convert to string */
+              : values[param.name] + '' /* adding a empty string to convert to string */,
         })
       }
     }
@@ -212,29 +204,29 @@ var getQueryStrings = function(swagger, path, method, values) {
  * @param  {string} method  Key of the method
  * @return {array}          List of objects describing the header
  */
-var getHeadersArray = function(swagger, path, method) {
-  var headers = []
+const getHeadersArray = function (swagger, path, method) {
+  const headers = []
 
-  var pathObj = swagger.paths[path][method]
+  const pathObj = swagger.paths[path][method]
 
   // 'accept' header:
   if (typeof pathObj.consumes !== 'undefined') {
-    for (var i in pathObj.consumes) {
-      var type = pathObj.consumes[i]
+    for (const i in pathObj.consumes) {
+      const type = pathObj.consumes[i]
       headers.push({
         name: 'accept',
-        value: type
+        value: type,
       })
     }
   }
 
   // 'content-type' header:
   if (typeof pathObj.produces !== 'undefined') {
-    for (var j in pathObj.produces) {
-      var type2 = pathObj.produces[j]
+    for (const j in pathObj.produces) {
+      const type2 = pathObj.produces[j]
       headers.push({
         name: 'content-type',
-        value: type2
+        value: type2,
       })
     }
   }
@@ -244,20 +236,20 @@ var getHeadersArray = function(swagger, path, method) {
     for (const type3 of Object.keys(pathObj.requestBody.content)) {
       headers.push({
         name: 'content-type',
-        value: type3
+        value: type3,
       })
     }
   }
 
   // headers defined in path object:
   if (typeof pathObj.parameters !== 'undefined') {
-    for (var k in pathObj.parameters) {
-      var param = pathObj.parameters[k]
+    for (const k in pathObj.parameters) {
+      const param = pathObj.parameters[k]
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
-        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
+        const data = sample(param.schema || param, {}, swagger)
         headers.push({
           name: param.name,
-          value: typeof sample === 'object' ? JSON.stringify(sample) : sample
+          value: typeof data === 'object' ? JSON.stringify(data) : data,
         })
       }
     }
@@ -287,17 +279,17 @@ var getHeadersArray = function(swagger, path, method) {
     return headers
   }
 
-  var basicAuthDef
-  var apiKeyAuthDef
-  var oauthDef
+  let basicAuthDef
+  let apiKeyAuthDef
+  let oauthDef
 
-  for (var m in securityObj) {
-    var secScheme = Object.keys(securityObj[m])[0]
+  for (const m in securityObj) {
+    const secScheme = Object.keys(securityObj[m])[0]
     const secDefinition = definedSchemes[secScheme]
-    let authType = secDefinition.type.toLowerCase()
+    const authType = secDefinition.type.toLowerCase()
     switch (authType) {
       case 'http':
-        let authScheme = secDefinition.scheme.toLowerCase()
+        const authScheme = secDefinition.scheme.toLowerCase()
         switch (authScheme) {
           case 'bearer':
             oauthDef = secScheme
@@ -324,17 +316,17 @@ var getHeadersArray = function(swagger, path, method) {
   if (basicAuthDef) {
     headers.push({
       name: 'Authorization',
-      value: 'Basic ' + 'REPLACE_BASIC_AUTH'
+      value: 'Basic ' + 'REPLACE_BASIC_AUTH',
     })
   } else if (apiKeyAuthDef) {
     headers.push({
       name: apiKeyAuthDef.name,
-      value: 'REPLACE_KEY_VALUE'
+      value: 'REPLACE_KEY_VALUE',
     })
   } else if (oauthDef) {
     headers.push({
       name: 'Authorization',
-      value: 'Bearer ' + 'REPLACE_BEARER_TOKEN'
+      value: 'Bearer ' + 'REPLACE_BEARER_TOKEN',
     })
   }
 
@@ -347,15 +339,15 @@ var getHeadersArray = function(swagger, path, method) {
  * @param  {object}   swagger          A swagger document or path to doc
  * @returns  {Promise}                 Array of HAR files
  */
-var oasToHarList = function(swagger) {
-  var docAsyncTask = typeof swagger === 'string' ? load(swagger) : Promise.resolve(swagger)
+const oasToHarList = function (swagger) {
+  const docAsyncTask = typeof swagger === 'string' ? load(swagger) : Promise.resolve(swagger)
 
   return docAsyncTask
-    .then(function(docs) {
-      var baseUrl = getBaseUrl(docs)
+    .then(function (docs) {
+      const baseUrl = getBaseUrl(docs)
       return parseSwaggerDoc(docs, baseUrl)
     })
-    .catch(function(err) {
+    .catch(function (err) {
       throw new Error('Document is invalid. ' + err.message)
     })
 }
@@ -367,17 +359,17 @@ var oasToHarList = function(swagger) {
  * @param baseUrl         Base URL
  * @returns {Array}       Array of HAR files
  */
-var parseSwaggerDoc = function(swagger, baseUrl) {
-  var harList = []
-  for (var path in swagger.paths) {
-    for (var method in swagger.paths[path]) {
-      var url = baseUrl + path
-      var har = createHar(swagger, path, method)
+const parseSwaggerDoc = function (swagger, baseUrl) {
+  const harList = []
+  for (const path in swagger.paths) {
+    for (const method in swagger.paths[path]) {
+      const url = baseUrl + path
+      const har = createHar(swagger, path, method)
       harList.push({
         method: method.toUpperCase(),
         url: url,
         description: swagger.paths[path][method].description || 'No description available',
-        har: har
+        har: har,
       })
     }
   }
@@ -392,20 +384,20 @@ var parseSwaggerDoc = function(swagger, baseUrl) {
  * @param  {string} ref A reference string
  * @return {any}
  */
-var resolveRef = function(oai, ref) {
-  var parts = ref.split('/')
+const resolveRef = function (oai, ref) {
+  const parts = ref.split('/')
 
-  if (parts.length <= 1) return {} // = 3
+  if (parts.length <= 1) return {}
 
-  var recursive = function(obj, index) {
+  const recursive = function (obj, index) {
     if (index + 1 < parts.length) {
-      // index = 1
-      var newCount = index + 1
+      const newCount = index + 1
       return recursive(obj[parts[index]], newCount)
-    } else {
-      return obj[parts[index]]
     }
+
+    return obj[parts[index]]
   }
+
   return recursive(oai, 1)
 }
 
@@ -413,19 +405,16 @@ var resolveRef = function(oai, ref) {
  * Iterate over all defined keys under encoding and apply encoding for them
  *
  * @param  {string[]} keys Array of keys referencing properties and how to encode them
- * @param  {any} sample The sample whose properties are encoded
+ * @param  {any} data The data whose properties are encoded
  * @param  {object} [encoding] The encoding options
  * @return {object}
  */
-var encodeProperties = function(keys, sample, encoding) {
+const encodeProperties = function (keys, data, encoding) {
   const encodedSample = keys.reduce((encodedSample, encodingKey) => {
-    encodedSample[encodingKey] = encodeValue(
-      sample[encodingKey],
-      encoding[encodingKey].contentType
-    )
+    encodedSample[encodingKey] = encodeValue(data[encodingKey], encoding[encodingKey].contentType)
     return encodedSample
   }, {})
-  return Object.assign({}, sample, encodedSample)
+  return Object.assign({}, data, encodedSample)
 }
 
 const BASE64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/
@@ -437,19 +426,19 @@ const BASE64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/
  * @param  {object} [encoding] The content options
  * @return {string}
  */
-var getMultipartContentType = function(value, paramKey, encoding) {
+const getMultipartContentType = function (value, paramKey, encoding) {
   if (encoding && encoding[paramKey] && encoding[paramKey].contentType) {
     return encoding[paramKey].contentType
   }
 
   switch (typeof value) {
     case 'object':
-      return 'application/json';
+      return 'application/json'
     case 'string':
-      return BASE64.test(value) ? 'application/octet-stream' : 'text/plain';
+      return BASE64.test(value) ? 'application/octet-stream' : 'text/plain'
     case 'number':
     case 'boolean':
-      return 'text/plain';
+      return 'text/plain'
     default:
       return 'application/octet-stream'
   }
@@ -462,23 +451,23 @@ var getMultipartContentType = function(value, paramKey, encoding) {
  * @param  {string} method  Key of the method
  * @return {string}         Serialized URL
  */
-var serializePath = function(swagger, path, method) {
-  const templateUrl = urlTemplate.parse(path)
+const serializePath = function (swagger, path, method) {
+  const templateUrl = template.parse(path)
   const params = {}
 
   if (typeof swagger.paths[path][method].parameters !== 'undefined') {
-    for (var i in swagger.paths[path][method].parameters) {
-      var param = swagger.paths[path][method].parameters[i]
+    for (const i in swagger.paths[path][method].parameters) {
+      const param = swagger.paths[path][method].parameters[i]
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'path') {
-        const sample = OpenAPISampler.sample(param.schema || param, {}, swagger)
-        Object.assign(params, { [param.name]: sample })
+        const data = sample(param.schema || param, {}, swagger)
+        Object.assign(params, { [param.name]: data })
       }
     }
   }
   return templateUrl.expand(params)
 }
 
-const BOUNDARY = '956888039105887155673143';
+const BOUNDARY = '956888039105887155673143'
 
 /*
  * Returns the encoded value for defined content
@@ -488,7 +477,7 @@ const BOUNDARY = '956888039105887155673143';
  * @param  {object} [encoding] The encoding options
  * @return {any}
  */
-var encodeValue = function(value, contentType, encoding) {
+const encodeValue = function (value, contentType, encoding) {
   switch (contentType) {
     case 'application/json':
       return JSON.stringify(value)
@@ -499,7 +488,7 @@ var encodeValue = function(value, contentType, encoding) {
     case 'application/xml':
       const xmlOptions = {
         header: true,
-        indent: '  '
+        indent: '  ',
       }
       return toXML(value, xmlOptions)
 
@@ -515,7 +504,7 @@ var encodeValue = function(value, contentType, encoding) {
           switch (multipartContentType) {
             case 'text/plain':
               param += `Content-Disposition: form-data; name="${key}"${EOL + EOL}`
-              break;
+              break
             case 'application/json':
               param += `Content-Disposition: form-data; name="${key}"${EOL}`
               param += `Content-Type: ${multipartContentType}${EOL + EOL}`
@@ -552,29 +541,29 @@ var encodeValue = function(value, contentType, encoding) {
 }
 
 /**
- * Encode the sample
+ * Encode the data
  *
- * @param  {any} sample Sample object to encode
+ * @param  {any} data Sample object to encode
  * @param  {string} contentType The content-type of the value
  * @param  {object} [encoding] The encoding options
  * @return {any}
  */
-var encodePayload = function(sample, contentType, encoding) {
-  let encodedSample = sample
+const encodePayload = function (data, contentType, encoding) {
+  let encodedData = data
 
   if (encoding) {
-    encodedSample = encodeProperties(Object.keys(encoding), sample, encoding)
+    encodedData = encodeProperties(Object.keys(encoding), data, encoding)
   }
 
   return {
-    mimeType: contentType.includes('multipart') ?
-      contentType + `; boundary=${BOUNDARY}` :
-      contentType,
-    text: encodeValue(encodedSample, contentType, encoding)
+    mimeType: contentType.includes('multipart')
+      ? contentType + `; boundary=${BOUNDARY}`
+      : contentType,
+    text: encodeValue(encodedData, contentType, encoding),
   }
 }
 
 module.exports = {
   oasToHarList: oasToHarList,
-  encodePayload: encodePayload
+  encodePayload: encodePayload,
 }
