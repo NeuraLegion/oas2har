@@ -1,6 +1,6 @@
-const { encodePayload } = require('../src');
+const { encodePayload } = require('../src/converter');
 
-test('Test encodePayload for image/*', function() {
+test('Test encodePayload for image/*', () => {
   const pngSample = encodePayload({}, 'image/png', {});
   const jpgSample = encodePayload({}, 'image/jpg', {});
 

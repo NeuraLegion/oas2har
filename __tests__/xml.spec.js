@@ -1,7 +1,7 @@
-const { encodePayload } = require('../src');
+const { encodePayload } = require('../src/converter');
 const { toXML } = require('jstoxml');
 
-test('Test encodePayload for application/xml', function() {
+test('Test encodePayload for application/xml', () => {
   const xmlSample = {
     name: 'Tom',
     surname: 'Trailer',

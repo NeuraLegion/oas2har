@@ -1,7 +1,7 @@
-const { encodePayload } = require('../src');
+const { encodePayload } = require('../src/converter');
 const querystring = require('querystring');
 
-test('Test encodePayload for application/x-www-form-urlencoded', function() {
+test('Test encodePayload for application/x-www-form-urlencoded', () => {
   const querystringSample = {
     name: 'Tom',
     surname: 'Trailer',

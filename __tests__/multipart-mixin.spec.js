@@ -1,6 +1,6 @@
-const { encodePayload } = require('../src')
+const { encodePayload } = require('../src/converter')
 
-test('Test encodePayload for multipart/form-data', function() {
+test('Test encodePayload for multipart/form-data', () => {
   const multipartMixin = {
     user: {
       username: 'john',
