@@ -11,7 +11,7 @@ test('GitHub swagger v2 JSON to HAR', async () => {
 });
 
 test('Petstore OpenApi v3 YAML to JSON converts to HAR', async () => {
-  const [firstRequest] = await oasToHarList(process.cwd() + '/__tests__/fixtures/petstore_oas.yaml');
+  const [firstRequest, ...rest] = await oasToHarList(process.cwd() + '/__tests__/fixtures/petstore_oas.yaml');
   const { har } = firstRequest;
 
   expect(har.method).toEqual('PUT');

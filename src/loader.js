@@ -18,7 +18,7 @@ const read = async (path) => {
       throw new Error('File not found!')
     }
 
-    throw new Error('Cannot read file.');
+    throw new Error('Cannot read file.')
   }
 }
 

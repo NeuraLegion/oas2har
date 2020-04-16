@@ -25,8 +25,15 @@ const { sample } = require('@neuralegion/openapi-sampler')
 const load = require('./loader')
 const template = require('url-template')
 const { toXML } = require('jstoxml')
-const querystring = require('querystring')
-const { resolveRef, removeTrailingSlash, removeLeadingSlash } = require('./utils')
+const querystring = require('qs')
+const {
+  resolveRef,
+  removeTrailingSlash,
+  removeLeadingSlash,
+  toFlattenArray,
+  toFlattenObject,
+  isObject,
+} = require('./utils')
 const { BOUNDARY, BASE64_PATTERN } = require('./common')
 
 /**
@@ -46,11 +53,17 @@ const createHar = (swagger, baseUrl, path, method, queryParamValues) => {
     queryParamValues = {}
   }
 
+  const queryString = getQueryStrings(swagger, path, method, queryParamValues) || []
+  const url =
+    baseUrl +
+    serializePath(swagger, path, method) +
+    (queryString.length ? '?' + queryString.map((x) => `${x.name}=${x.value}`).join('&') : '')
+
   const har = {
+    url: encodeURI(url),
+    queryString,
     method: method.toUpperCase(),
-    url: baseUrl + serializePath(swagger, path, method),
     headers: getHeadersArray(swagger, path, method),
-    queryString: getQueryStrings(swagger, path, method, queryParamValues),
     httpVersion: 'HTTP/1.1',
     cookies: [],
     headersSize: 0,
@@ -140,8 +153,9 @@ const getPayload = (swagger, path, method) => {
  */
 const parseUrls = (swagger) => {
   if (!Array.isArray(swagger.servers)) {
-    const basePath = (typeof swagger.basePath !== 'undefined' ? removeLeadingSlash(swagger.basePath) : '')
-    const host = removeTrailingSlash(swagger.host);
+    const basePath =
+      typeof swagger.basePath !== 'undefined' ? removeLeadingSlash(swagger.basePath) : ''
+    const host = removeTrailingSlash(swagger.host)
     const schemes = typeof swagger.schemes !== 'undefined' ? swagger.schemes : ['https']
     return schemes.map((x) => x + '://' + removeTrailingSlash(host + '/' + basePath))
   }
@@ -156,7 +170,7 @@ const parseUrls = (swagger) => {
  * @return {string}         Base URL
  */
 const getBaseUrl = (swagger) => {
-  const urls = parseUrls(swagger);
+  const urls = parseUrls(swagger)
 
   let preferredUrls = urls.filter((x) => x.startsWith('https') || x.startsWith('wss'))
 
@@ -170,7 +184,7 @@ const getBaseUrl = (swagger) => {
   })
 }
 
-exports.getBaseUrl = getBaseUrl;
+exports.getBaseUrl = getBaseUrl
 
 /**
  * Get array of objects describing the query parameters for a path and method pair
@@ -198,15 +212,27 @@ const getQueryStrings = (swagger, path, method, values) => {
       }
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'query') {
         const data = sample(param.schema || param, {}, swagger)
-        queryStrings.push({
-          name: param.name,
-          value:
-            typeof values[param.name] === 'undefined'
-              ? typeof param.default === 'undefined'
-                ? encodeURIComponent(typeof data === 'object' ? JSON.stringify(data) : data)
-                : param.default + ''
-              : values[param.name] + '' /* adding a empty string to convert to string */,
-        })
+
+        if (typeof values[param.name] !== 'undefined') {
+          queryStrings.push({
+            name: param.name,
+            value: values[param.name] + '',
+          })
+        } else {
+          if (typeof param.default === 'undefined') {
+            queryStrings.push(
+              ...paramsSerialization(param.name, data, {
+                style: param.style === 'undefined' ? param.collectionFormat : param.style,
+                explode: param.explode,
+              }).values
+            )
+          } else {
+            queryStrings.push({
+              name: param.name,
+              value: param.default + '',
+            })
+          }
+        }
       }
     }
   }
@@ -370,7 +396,7 @@ const oasToHarList = (swagger) => {
       throw new Error('Document is invalid. ' + err.message)
     })
 }
-exports.oasToHarList = oasToHarList;
+exports.oasToHarList = oasToHarList
 
 /**
  * Produces array of HAR files for given Swagger document
@@ -392,17 +418,17 @@ const parseSwaggerDoc = (swagger, baseUrl) => {
       const har = createHar(swagger, baseUrl, path, method)
 
       harList.push({
+        url,
+        har,
         method: method.toUpperCase(),
-        url: url,
         description: swagger.paths[path][method].description || 'No description available',
-        har: har,
       })
     }
   }
 
   return harList
 }
-exports.parseSwaggerDoc = parseSwaggerDoc;
+exports.parseSwaggerDoc = parseSwaggerDoc
 
 /**
  * Iterate over all defined keys under encoding and apply encoding for them
@@ -469,6 +495,114 @@ const serializePath = function (swagger, path, method) {
   return templateUrl.expand(params)
 }
 
+/**
+ *
+ * @param {string} name name a name of param
+ * @param {any} value a param's value
+ * @returns {{name: *, value: string}[]}
+ */
+const createQueryStringEntries = (name, value) => {
+  let values
+
+  if (isObject(value)) {
+    const flatten = toFlattenObject(value, { format: 'indices' })
+    values = Object.entries(flatten).map(([name, x]) => ({
+      name,
+      value: x + '',
+    }))
+  } else if (Array.isArray(value)) {
+    values = value.map((x) => ({ name, value: x + '' }))
+  } else {
+    values = [
+      {
+        name,
+        value: value + '',
+      },
+    ]
+  }
+
+  return values
+}
+
+/**
+ * Translates data structures or object state into a format
+ * that can be transmitted and reconstructed later.
+ *
+ * @param {string} name a name of param
+ * @param {any} value a param's value
+ * @param {Object} [options] an additional options, allows to specify how these parameters should be serialized
+ * @param {'form'|'spaceDelimited'|'ssv'|'pipes'|'multi'|'pipeDelimited'} options.style defines
+ * how multiple values are delimited.
+ * @param {boolean} options.explode specifies whether
+ * arrays and objects should generate separate parameters for each array item or object property.
+ * @returns {Object}
+ */
+const paramsSerialization = (name, value, options) => {
+  options = Object.assign({ style: 'form', explode: true }, options)
+
+  const getDelimiter = () => {
+    if (options.explode) {
+      return '&'
+    }
+
+    switch (options.style) {
+      case 'spaceDelimited':
+      case 'ssv':
+        return '%20'
+      case 'pipeDelimited':
+      case 'pipes':
+        return '|'
+      case 'form':
+      case 'multi':
+        return ','
+      default:
+        return '&'
+    }
+  }
+
+  const delimiter = getDelimiter()
+
+  const transposeValue = (value) => {
+    if (options.explode) {
+      return value
+    }
+
+    if (Array.isArray(value)) {
+      return value.join(delimiter)
+    } else if (isObject(value)) {
+      return toFlattenArray(value).join(delimiter)
+    }
+
+    return value
+  }
+
+  const ignoreValues = (value) => {
+    return (
+      isObject(value) && ['spaceDelimited', 'pipeDelimited', 'pipes', 'ssv'].includes(options.style)
+    )
+  }
+
+  const transposed = transposeValue(value)
+
+  const arrayFormat = options.explode && Array.isArray(transposed) ? 'repeat' : 'indices'
+
+  const object = isObject(transposed) ? transposed : { [name]: transposed }
+
+  const queryString = querystring.stringify(!ignoreValues(value) ? object : '', {
+    delimiter,
+    arrayFormat,
+    format: 'RFC3986',
+    encode: false,
+    addQueryPrefix: false,
+  })
+
+  return {
+    queryString,
+    values: createQueryStringEntries(name, transposed),
+  }
+}
+exports.paramsSerialization = paramsSerialization
+
 /*
  * Returns the encoded value for defined content
  *
@@ -483,7 +617,10 @@ const encodeValue = function (value, contentType, encoding) {
       return JSON.stringify(value)
 
     case 'application/x-www-form-urlencoded':
-      return querystring.stringify(value)
+      return querystring.stringify(value, {
+        format: 'RFC3986',
+        encode: false,
+      })
 
     case 'application/xml':
       const xmlOptions = {
@@ -529,11 +666,11 @@ const encodeValue = function (value, contentType, encoding) {
 
     case 'image/jpg':
     case 'image/jpeg':
-      return Buffer.from([0xff, 0xd8, 0xff, 0xdb], 'hex').toString('base64')
+      return Buffer.from([0xff, 0xd8, 0xff, 0xdb]).toString('base64')
 
     case 'image/png':
     case 'image/*':
-      return Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'hex').toString('base64')
+      return Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64')
 
     default:
       return typeof value === 'object' ? JSON.stringify(value) : value
@@ -562,5 +699,4 @@ const encodePayload = function (data, contentType, encoding) {
     text: encodeValue(encodedData, contentType, encoding),
   }
 }
-exports.encodePayload = encodePayload;
-
+exports.encodePayload = encodePayload
