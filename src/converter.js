@@ -409,11 +409,11 @@ const parseSwaggerDoc = (swagger, baseUrl) => {
   const harList = []
 
   for (const path in swagger.paths) {
-    if (path.startsWith('x-swagger-router-controller')) {
-      continue
-    }
-
     for (const method in swagger.paths[path]) {
+      if (method && method.toLowerCase().startsWith('x-swagger-router-controller')) {
+        continue
+      }
+
       const url = removeTrailingSlash(baseUrl) + '/' + removeLeadingSlash(path)
       const har = createHar(swagger, baseUrl, path, method)
 

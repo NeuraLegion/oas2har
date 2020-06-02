@@ -3,7 +3,9 @@ const { parseSwaggerDoc } = require('../src/converter')
 test('should return empty entries', () => {
   const swagger = {
     paths: {
-      'x-swagger-router-controller': 'health',
+      '/emojis': {
+        'x-swagger-router-controller': 'health'
+      }
     },
   }
   const entries = parseSwaggerDoc(swagger, 'https://example.com')
@@ -13,8 +15,8 @@ test('should return empty entries', () => {
 test('should skip x-swagger-router-controller from paths', () => {
   const swagger = {
     paths: {
-      'x-swagger-router-controller': 'health',
       '/emojis': {
+        'x-swagger-router-controller': 'health',
         get: {
           parameters: [
             {
