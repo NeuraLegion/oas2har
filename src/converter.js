@@ -154,11 +154,7 @@ const getPayload = (swagger, path, method) => {
  * @returns {string[]}
  */
 const parseUrls = (swagger) => {
-  if (Array.isArray(swagger.servers) && swagger.servers.length) {
-    return swagger.servers.map((server) => removeTrailingSlash(server.url))
-  }
-
-  if (swagger.host) {
+  if (!Array.isArray(swagger.servers)) {
     const basePath =
       typeof swagger.basePath !== 'undefined' ? removeLeadingSlash(swagger.basePath) : ''
     const host = removeTrailingSlash(swagger.host)
@@ -166,7 +162,7 @@ const parseUrls = (swagger) => {
     return schemes.map((x) => x + '://' + removeTrailingSlash(host + '/' + basePath))
   }
 
-  return []
+  return swagger.servers.map((server) => removeTrailingSlash(server.url))
 }
 
 /**
@@ -177,10 +173,6 @@ const parseUrls = (swagger) => {
  */
 const getBaseUrl = (swagger) => {
   const urls = parseUrls(swagger)
-
-  if (!Array.isArray(urls) || !urls.length) {
-    throw new Error('None server or host is defined.')
-  }
 
   let preferredUrls = urls.filter((x) => x.startsWith('https') || x.startsWith('wss'))
 
