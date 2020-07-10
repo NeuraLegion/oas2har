@@ -47,7 +47,7 @@
     "semantic-release": "^17.1.1"
   },
   "scripts": {
-    "lint": "eslint -c .eslintrc  --ext .js src tests",
+    "lint": "eslint -c .eslintrc src tests",
     "format": "prettier --check src tests",
     "format:write": "prettier --write src tests",
     "test": "jest",
