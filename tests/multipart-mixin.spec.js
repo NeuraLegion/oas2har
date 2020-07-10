@@ -4,20 +4,20 @@ test('Test encodePayload for multipart/form-data', () => {
   const multipartMixin = {
     user: {
       username: 'john',
-      password: 'password'
+      password: 'password',
     },
     token: 'user_token',
     amount: 100,
-    buffer: Buffer.from('base65').toString('base64')
+    buffer: Buffer.from('base65').toString('base64'),
   }
 
   const content = {
     user: {
-      contentType: 'application/json'
+      contentType: 'application/json',
     },
     buffer: {
-      contentType: 'application/octet-stream'
-    }
+      contentType: 'application/octet-stream',
+    },
   }
 
   const multipartMixinExpected =
@@ -40,5 +40,7 @@ test('Test encodePayload for multipart/form-data', () => {
   const multipartMixinEncoded = encodePayload(multipartMixin, 'multipart/mixin', content)
 
   expect(multipartMixinEncoded.text).toEqual(multipartMixinExpected)
-  expect(multipartMixinEncoded.mimeType).toEqual('multipart/mixin; boundary=956888039105887155673143')
+  expect(multipartMixinEncoded.mimeType).toEqual(
+    'multipart/mixin; boundary=956888039105887155673143'
+  )
 })

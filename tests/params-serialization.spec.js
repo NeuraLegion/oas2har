@@ -76,7 +76,7 @@ describe('Query Parameters', () => {
   test('should serialize array with style: pipeDelimited and explode: true', () => {
     const result = paramsSerialization(name, array, { explode: true, style: 'pipeDelimited' })
     expect(result.queryString).toEqual(`${array.map((x) => `${name}=${x}`).join('&')}`)
-    expect(result.values).toEqual(array.map((x) => ({name, value: x + ''})))
+    expect(result.values).toEqual(array.map((x) => ({ name, value: x + '' })))
   })
 
   test('should serialize array with style: pipeDelimited and explode: false', () => {

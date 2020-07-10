@@ -33,11 +33,8 @@ describe('OAS3', () => {
 describe('OAS2', () => {
   test('should return https url', () => {
     const url = getBaseUrl({
-      schemes: [
-        'https',
-        'http',
-      ],
-      host: 'example.com'
+      schemes: ['https', 'http'],
+      host: 'example.com',
     })
 
     expect(url).toEqual('https://example.com')
@@ -45,10 +42,8 @@ describe('OAS2', () => {
 
   test('should return http url for backward compatibility', () => {
     const url = getBaseUrl({
-      schemes: [
-        'http',
-      ],
-      host: 'example.com'
+      schemes: ['http'],
+      host: 'example.com',
     })
 
     expect(url).toContain('http://example.com')
@@ -56,12 +51,9 @@ describe('OAS2', () => {
 
   test('should return url with path', () => {
     const url = getBaseUrl({
-      schemes: [
-        'http',
-        'https'
-      ],
+      schemes: ['http', 'https'],
       host: 'example.com',
-      basePath: '/api/v1'
+      basePath: '/api/v1',
     })
 
     expect(url).toContain('https://example.com/api/v1')

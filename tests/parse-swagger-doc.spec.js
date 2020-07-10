@@ -4,8 +4,8 @@ test('should return empty entries', () => {
   const swagger = {
     paths: {
       '/emojis': {
-        'x-swagger-router-controller': 'health'
-      }
+        'x-swagger-router-controller': 'health',
+      },
     },
   }
   const entries = parseSwaggerDoc(swagger, 'https://example.com')
@@ -33,8 +33,6 @@ test('should skip x-swagger-router-controller from paths', () => {
   const entries = parseSwaggerDoc(swagger, 'https://example.com')
   expect(entries.length).toEqual(1)
   expect(entries).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({ url: 'https://example.com/emojis' })
-    ])
+    expect.arrayContaining([expect.objectContaining({ url: 'https://example.com/emojis' })])
   )
 })
