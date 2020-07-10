@@ -15,6 +15,7 @@
     "jstoxml": "^1.6.8",
     "openapi-schemas": "^2.0.3",
     "qs": "^6.9.4",
+    "semver": "^7.3.2",
     "url-template": "^2.0.8"
   },
   "typings": "./src/index.d.ts",

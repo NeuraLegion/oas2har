@@ -26,6 +26,8 @@ const load = require('./loader')
 const template = require('url-template')
 const { toXML } = require('jstoxml')
 const querystring = require('qs')
+const { validate } = require('./validator')
+const { URL } = require('url')
 const {
   resolveRef,
   removeTrailingSlash,
@@ -39,13 +41,13 @@ const { BOUNDARY, BASE64_PATTERN } = require('./common')
 /**
  * Create HAR Request object for path and method pair described in given swagger.
  *
- * @param  {Object} swagger           Swagger document
- * @param  {string} baseUrl           Base URL
- * @param  {string} path              Key clear
+ * @param  {Object} swagger            Swagger document
+ * @param  {string} baseUrl            Base URL
+ * @param  {string} path               Key clear
  * of the path
- * @param  {string} method            Key of the method
- * @param  {Object} queryParamValues  Optional: Values for the query parameters if present
- * @return {Object}                   HAR Request object
+ * @param  {string} method             Key of the method
+ * @param  {Object} [queryParamValues] Values for the query parameters if present
+ * @return {Object}                    HAR Request object
  */
 const createHar = (swagger, baseUrl, path, method, queryParamValues) => {
   // if the operational parameter is not provided, set it to empty object
@@ -187,6 +189,44 @@ const getBaseUrl = (swagger) => {
 exports.getBaseUrl = getBaseUrl
 
 /**
+ * Normalize URL
+ * @param urlString {string}
+ * @returns {string}
+ */
+const normalizeUrl = (urlString) => {
+  const hasRelativeProtocol = urlString.startsWith('//')
+  const isRelativeUrl = !hasRelativeProtocol && /^\.*\//.test(urlString)
+
+  if (!isRelativeUrl) {
+    urlString = urlString.replace(/^(?!(?:\w+:)?\/\/)|^\/\//, 'https:')
+  }
+
+  const url = new URL(urlString)
+
+  if (url.pathname) {
+    url.pathname = url.pathname.replace(/(?<!https?:)\/{2,}/g, '/').replace(/\/$/, '')
+
+    try {
+      url.pathname = decodeURI(url.pathname)
+    } catch (_e) {
+      // noop
+    }
+  }
+
+  if (url.hostname) {
+    url.hostname = url.hostname.replace(/\.$/, '')
+  }
+
+  urlString = url.toString()
+
+  if (url.pathname === '/' && url.hash === '') {
+    urlString = urlString.replace(/\/$/, '')
+  }
+
+  return urlString
+}
+
+/**
  * Get array of objects describing the query parameters for a path and method pair
  * described in the given swagger.
  *
@@ -293,7 +333,7 @@ const getHeadersArray = (swagger, path, method) => {
       if (typeof param.in !== 'undefined' && param.in.toLowerCase() === 'header') {
         const data = sample(param.schema || param, {}, swagger)
         headers.push({
-          name: param.name,
+          name: param.name.toLowerCase(),
           value: typeof data === 'object' ? JSON.stringify(data) : data,
         })
       }
@@ -360,17 +400,17 @@ const getHeadersArray = (swagger, path, method) => {
 
   if (basicAuthDef) {
     headers.push({
-      name: 'Authorization',
+      name: 'authorization',
       value: 'Basic ' + 'REPLACE_BASIC_AUTH',
     })
   } else if (apiKeyAuthDef) {
     headers.push({
-      name: apiKeyAuthDef.name,
+      name: apiKeyAuthDef.name.toLowerCase(),
       value: 'REPLACE_KEY_VALUE',
     })
   } else if (oauthDef) {
     headers.push({
-      name: 'Authorization',
+      name: 'authorization',
       value: 'Bearer ' + 'REPLACE_BEARER_TOKEN',
     })
   }
@@ -384,17 +424,11 @@ const getHeadersArray = (swagger, path, method) => {
  * @param  {object}   swagger          A swagger document or path to doc
  * @returns  {Promise}                 Array of HAR files
  */
-const oasToHarList = (swagger) => {
-  const docAsyncTask = typeof swagger === 'string' ? load(swagger) : Promise.resolve(swagger)
-
-  return docAsyncTask
-    .then(function (docs) {
-      const baseUrl = getBaseUrl(docs)
-      return parseSwaggerDoc(docs, baseUrl)
-    })
-    .catch(function (err) {
-      throw new Error('Document is invalid. ' + err.message)
-    })
+const oasToHarList = async (swagger) => {
+  const docs = typeof swagger === 'string' ? await load(swagger) : swagger
+  await validate(docs)
+  const baseUrl = normalizeUrl(getBaseUrl(docs))
+  return parseSwaggerDoc(docs, baseUrl)
 }
 exports.oasToHarList = oasToHarList
 
