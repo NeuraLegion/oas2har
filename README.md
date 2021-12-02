@@ -1,5 +1,7 @@
 # oas2har
 
+**THIS REPO HAS BEEN DEPRECATED. THE DEVELOPMENT HAS MOVED TO A NEW REPOSITORY: https://github.com/NeuraLegion/har-sdk**
+
 Transform you Swagger OAI spec files to a series of HAR request objects.
 
 * http://swagger.io/specification/
